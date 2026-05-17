@@ -1,0 +1,48 @@
+export interface Video {
+  id: string;
+  title: string;
+  filename: string;
+  path: string;
+  relativePath: string;
+  category: string;
+  subcategory?: string;
+  duration: number;
+  fileSize: number;
+  resolution?: string;
+  thumbnail?: string;
+  addedAt: string;
+  lastWatched?: string;
+  watchProgress: number; // 0–1
+  isFavorite: boolean;
+  tags: string[];
+}
+
+export interface Category {
+  name: string;
+  count: number;
+  subcategories: string[];
+}
+
+export interface ScanStatus {
+  status: 'idle' | 'scanning' | 'complete' | 'error';
+  total: number;
+  processed: number;
+  message?: string;
+  startedAt?: string;
+}
+
+export interface VideoListResponse {
+  videos: Video[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+export type SortOption = 'date' | 'name' | 'size' | 'duration';
+
+export interface FilterState {
+  sort:     SortOption;
+  category: string;
+  search:   string;
+}
