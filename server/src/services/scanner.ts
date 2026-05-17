@@ -44,7 +44,7 @@ function* walkDir(dir: string): Generator<string> {
 }
 
 /** Derive category + subcategory from path relative to Videos root */
-function deriveCategories(
+export function deriveCategories(
   relativePath: string
 ): { category: string; subcategory?: string } {
   const parts = relativePath.split(path.sep).filter(Boolean);
@@ -59,7 +59,7 @@ function deriveCategories(
 }
 
 /** Generate a clean title from filename */
-function titleFromFilename(filename: string): string {
+export function titleFromFilename(filename: string): string {
   const noExt = path.basename(filename, path.extname(filename));
   return noExt
     .replace(/[_\-\.]+/g, ' ')            // replace separators with space
@@ -69,7 +69,7 @@ function titleFromFilename(filename: string): string {
 }
 
 /** Generate simple AI-like tags from filename parts */
-function generateTags(title: string, category: string): string[] {
+export function generateTags(title: string, category: string): string[] {
   const words = [...title.toLowerCase().split(/\s+/), category.toLowerCase()];
   const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'in', 'to', 'for', 'with']);
   return [...new Set(words.filter(w => w.length > 3 && !stopWords.has(w)))].slice(0, 8);

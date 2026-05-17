@@ -169,6 +169,7 @@ const stmts = {
       timestamp = excluded.timestamp,
       updatedAt = excluded.updatedAt
   `),
+  deleteProgress: db.prepare('DELETE FROM watch_history WHERE videoId = ?'),
   getProgress: db.prepare('SELECT timestamp FROM watch_history WHERE videoId = ?'),
 };
 
@@ -263,6 +264,10 @@ export const videoDb = {
 
   upsertProgress(videoId: string, timestamp: number) {
     stmts.upsertProgress.run(videoId, timestamp, new Date().toISOString());
+  },
+
+  deleteProgress(videoId: string) {
+    stmts.deleteProgress.run(videoId);
   },
 
   getProgress(videoId: string): number {

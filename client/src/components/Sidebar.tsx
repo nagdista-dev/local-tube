@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Home, Heart, History, FolderOpen, ChevronRight, Tv2
@@ -15,6 +15,7 @@ const NAV_LINKS = [
 
 export default function Sidebar() {
   const location  = useLocation();
+  const navigate  = useNavigate();
   const isOpen    = useStore(s => s.sidebarOpen);
   const setCategory = useStore(s => s.setCategory);
   const activeCategory = useStore(s => s.filters.category);
@@ -27,6 +28,9 @@ export default function Sidebar() {
 
   const handleCategory = (name: string) => {
     setCategory(activeCategory === name ? '' : name);
+    if (location.pathname !== '/') {
+      navigate('/');
+    }
   };
 
   if (!isOpen) {
@@ -37,6 +41,11 @@ export default function Sidebar() {
           <Link
             key={to}
             to={to}
+            onClick={() => {
+              if (to === '/') {
+                setCategory('');
+              }
+            }}
             className={`p-3 rounded-lg transition-colors flex items-center justify-center
               ${location.pathname === to
                 ? 'bg-brand text-white'
@@ -75,6 +84,11 @@ export default function Sidebar() {
           <Link
             key={to}
             to={to}
+            onClick={() => {
+              if (to === '/') {
+                setCategory('');
+              }
+            }}
             className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
               ${location.pathname === to
                 ? 'bg-surface-200 text-white'

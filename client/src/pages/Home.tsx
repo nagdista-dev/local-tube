@@ -1,13 +1,13 @@
-import { useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useRef, useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Download, Link2, Loader2, AlertTriangle, Clipboard, Play } from 'lucide-react';
 import { api } from '../utils/api';
 import { useStore } from '../store/useStore';
 import VideoCard from '../components/VideoCard';
 import VideoGrid from '../components/VideoGrid';
 import { SkeletonGrid } from '../components/SkeletonCard';
-import { Video } from '../types';
+import { Video, DownloadJob } from '../types';
 
 // ─── Horizontal scroll row ────────────────────────────────────────────────
 
@@ -41,11 +41,7 @@ function VideoRow({ title, videos, viewAllTo }: {
 
       <div
         ref={rowRef}
-        className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scroll-smooth
-                   [&::-webkit-scrollbar]:h-1.5
-                   [&::-webkit-scrollbar-track]:bg-surface-100
-                   [&::-webkit-scrollbar-thumb]:bg-surface-300
-                   [&::-webkit-scrollbar-thumb]:rounded-full"
+        className="flex gap-4 overflow-x-auto pb-2 scroll-smooth [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]"
       >
         {videos.map(v => (
           <div key={v.id} className="shrink-0 w-52">
@@ -63,6 +59,7 @@ export default function Home() {
   const search   = useStore(s => s.filters.search);
   const category = useStore(s => s.filters.category);
   const sort     = useStore(s => s.filters.sort);
+  const navigate = useNavigate();
 
   const { data: history   = [] } = useQuery({ queryKey: ['history'],   queryFn: () => api.videos.history(14) });
   const { data: favorites = [] } = useQuery({ queryKey: ['favorites'], queryFn: api.videos.favorites });
@@ -82,24 +79,25 @@ export default function Home() {
 
   return (
     <div className="animate-fade-in">
+
+
       {/* Continue Watching */}
       {history.some(v => v.watchProgress > 0.02 && v.watchProgress < 0.98) && (
-        <VideoRow
-          title="Continue Watching"
-          viewAllTo="/history"
-          videos={history.filter(v => v.watchProgress > 0.02 && v.watchProgress < 0.98)}
-        />
-      )}
-
-      {/* Favorites */}
-      {favorites.length > 0 && (
-        <VideoRow title="❤️ Favorites" viewAllTo="/favorites" videos={favorites.slice(0, 14)} />
+        <>
+          <VideoRow
+            title="Continue Watching"
+            viewAllTo="/history"
+            videos={history.filter(v => v.watchProgress > 0.02 && v.watchProgress < 0.98)}
+          />
+          {/* Division line after Continue Watching row */}
+          <div className="border-t border-surface-200/30 my-8 shadow-[0_1px_0_rgba(255,255,255,0.02)]" />
+        </>
       )}
 
       {/* Recently Added */}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Recently Added</h2>
+          <h2 className="text-lg font-semibold text-white">Recently Added</h2>
         </div>
         <VideoGrid sort="date" />
       </section>

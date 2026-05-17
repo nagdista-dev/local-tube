@@ -10,12 +10,11 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route index       element={<Home />} />
+          <Route index            element={<Home />} />
           <Route path="history"   element={<History />} />
           <Route path="favorites" element={<Favorites />} />
+          <Route path="watch/:id" element={<Player />} />
         </Route>
-        {/* Player is full-page (no sidebar needed while watching) */}
-        <Route path="watch/:id" element={<Player />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

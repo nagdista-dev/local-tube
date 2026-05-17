@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { Video } from '../types';
 import { videoDb } from '../services/database';
+import { startDownload, getJobStatus } from '../services/downloader';
 
 const router = Router();
 
@@ -92,6 +95,66 @@ router.get('/favorites', (_req: Request, res: Response) => {
   }
 });
 
+// ─── POST /api/videos/download ───────────────────────────────────────────
+router.post('/download', (req: Request, res: Response) => {
+  const { url } = req.body as { url: string };
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ error: 'url must be a valid non-empty string' });
+  }
+  try {
+    const jobId = startDownload(url);
+    res.json({ jobId });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to start download job' });
+  }
+});
+
+// ─── GET /api/videos/download/jobs/:jobId ────────────────────────────────
+router.get('/download/jobs/:jobId', (req: Request, res: Response) => {
+  const job = getJobStatus(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ error: 'Download job not found' });
+  }
+  res.json(job);
+});
+
+// ─── POST /api/videos/external ───────────────────────────────────────────
+router.post('/external', (req: Request, res: Response) => {
+  const { url, title, category } = req.body as { url: string; title?: string; category?: string };
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ error: 'url must be a valid non-empty string' });
+  }
+
+  try {
+    const finalTitle = (title && title.trim()) || 'External Stream';
+    const finalCategory = (category && category.trim()) || 'External Streams';
+    const videoId = uuidv4();
+
+    const video: Video = {
+      id: videoId,
+      title: finalTitle,
+      filename: finalTitle,
+      path: url.trim(),
+      relativePath: url.trim(),
+      category: finalCategory,
+      subcategory: 'Web',
+      duration: 0,
+      fileSize: 0,
+      resolution: 'HD',
+      thumbnail: undefined,
+      addedAt: new Date().toISOString(),
+      isFavorite: false,
+      tags: [finalCategory.toLowerCase(), 'external'],
+      watchProgress: 0,
+    };
+
+    videoDb.upsert(video);
+    res.json({ videoId });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save external video link' });
+  }
+});
+
 // ─── GET /api/videos/:id ──────────────────────────────────────────────────
 router.get('/:id', (req: Request, res: Response) => {
   const video = videoDb.findById(req.params.id);
@@ -121,6 +184,16 @@ router.post('/:id/progress', (req: Request, res: Response) => {
 router.get('/:id/progress', (req: Request, res: Response) => {
   const timestamp = videoDb.getProgress(req.params.id);
   res.json({ timestamp });
+});
+
+// ─── DELETE /api/videos/:id/progress ──────────────────────────────────────
+router.delete('/:id/progress', (req: Request, res: Response) => {
+  try {
+    videoDb.deleteProgress(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete watch history' });
+  }
 });
 
 export default router;

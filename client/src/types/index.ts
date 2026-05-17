@@ -46,3 +46,15 @@ export interface FilterState {
   category: string;
   search:   string;
 }
+
+export interface DownloadJob {
+  id: string;
+  url: string;
+  status: 'pending' | 'downloading' | 'completed' | 'failed';
+  percent: number;
+  speed: string;
+  eta: string;
+  title: string;
+  error?: string;
+  videoId?: string;
+}

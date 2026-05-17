@@ -1,4 +1,4 @@
-import { Video, Category, VideoListResponse, ScanStatus } from '../types';
+import { Video, Category, VideoListResponse, ScanStatus, DownloadJob } from '../types';
 
 const BASE = '/api';
 
@@ -66,6 +66,19 @@ export const api = {
     getProgress(id: string): Promise<{ timestamp: number }> {
       return request(`${BASE}/videos/${id}/progress`);
     },
+
+    deleteProgress(id: string): Promise<{ ok: boolean }> {
+      return request(`${BASE}/videos/${id}/progress`, {
+        method: 'DELETE',
+      });
+    },
+
+    addExternal(url: string, title?: string, category?: string): Promise<{ videoId: string }> {
+      return request(`${BASE}/videos/external`, {
+        method: 'POST',
+        body: JSON.stringify({ url, title, category }),
+      });
+    },
   },
 
   scan: {
@@ -74,6 +87,18 @@ export const api = {
     },
     status(): Promise<ScanStatus> {
       return request(`${BASE}/scan/status`);
+    },
+  },
+
+  download: {
+    start(url: string): Promise<{ jobId: string }> {
+      return request(`${BASE}/videos/download`, {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      });
+    },
+    status(jobId: string): Promise<DownloadJob> {
+      return request(`${BASE}/videos/download/jobs/${jobId}`);
     },
   },
 };
