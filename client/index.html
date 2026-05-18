@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
@@ -7,7 +7,31 @@
     <title>LocalTube</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Initialize theme on page load to prevent flash
+      (function () {
+        try {
+          const stored = localStorage.getItem("localtube-store");
+          const theme = stored ? JSON.parse(stored).state?.theme : "dark";
+          const root = document.documentElement;
+
+          if (theme === "light") {
+            root.classList.remove("dark");
+            root.classList.add("light");
+          } else {
+            root.classList.add("dark");
+            root.classList.remove("light");
+          }
+        } catch {
+          // Default to dark mode if localStorage fails
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
   </head>
   <body class="bg-surface text-white antialiased">
     <div id="root"></div>

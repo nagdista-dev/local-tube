@@ -1,13 +1,17 @@
-import { Outlet } from 'react-router-dom';
-import Navbar  from './Navbar';
-import Sidebar from './Sidebar';
-import { useStore } from '../store/useStore';
+import { Outlet } from "react-router-dom";
+import Navbar from "./Navbar";
+import Sidebar from "./Sidebar";
+import { useStore } from "../store/useStore";
+import { useTheme } from "../hooks/useTheme";
 
 export default function Layout() {
-  const sidebarOpen = useStore(s => s.sidebarOpen);
+  const sidebarOpen = useStore((s) => s.sidebarOpen);
+  const { theme } = useTheme();
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface text-white">
+    <div
+      className={`min-h-screen flex flex-col bg-surface text-white transition-colors duration-200`}
+    >
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />

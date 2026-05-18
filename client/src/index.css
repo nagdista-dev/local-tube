@@ -12,6 +12,147 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
+  /* Light mode support */
+  .light {
+    color-scheme: light;
+  }
+
+  .light body {
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  .light .bg-surface {
+    @apply bg-white;
+  }
+
+  .light .bg-surface-50 {
+    @apply bg-gray-100;
+  }
+
+  .light .bg-surface-100 {
+    @apply bg-gray-200;
+  }
+
+  .light .bg-surface-200 {
+    @apply bg-gray-300;
+  }
+
+  .light .bg-surface-300 {
+    @apply bg-gray-400;
+  }
+
+  .light .text-white {
+    @apply text-gray-900;
+  }
+
+  .light .text-gray-300 {
+    @apply text-gray-700;
+  }
+
+  .light .text-gray-400 {
+    @apply text-gray-600;
+  }
+
+  .light .border-surface-200 {
+    @apply border-gray-200;
+  }
+
+  .light .border-surface-300 {
+    @apply border-gray-300;
+  }
+
+  .light .border-white\/5 {
+    @apply border-black/5;
+  }
+
+  .light .hover\:bg-surface-200:hover {
+    @apply bg-gray-200;
+  }
+
+  .light .placeholder\:text-gray-500::placeholder {
+    @apply text-gray-600;
+  }
+
+  /* Light mode brand colors */
+  .light .bg-brand {
+    @apply bg-red-700;
+  }
+
+  .light .text-brand {
+    @apply text-red-700;
+  }
+
+  .light .hover\:bg-brand:hover {
+    @apply bg-red-800;
+  }
+
+  .light .hover\:text-brand:hover {
+    @apply text-red-800;
+  }
+
+  /* Light mode accent colors */
+  .light .bg-accent {
+    @apply bg-blue-700;
+  }
+
+  .light .text-accent {
+    @apply text-blue-700;
+  }
+
+  .light .hover\:bg-accent:hover {
+    @apply bg-blue-800;
+  }
+
+  .light .hover\:text-accent:hover {
+    @apply text-blue-800;
+  }
+
+  .light .border-brand {
+    @apply border-red-700;
+  }
+
+  .light .border-accent {
+    @apply border-blue-700;
+  }
+
+  /* Light mode text color overrides */
+  .light .text-white {
+    @apply text-gray-900;
+  }
+
+  .light .text-gray-500 {
+    @apply text-gray-600;
+  }
+
+  .light .text-gray-400 {
+    @apply text-gray-700;
+  }
+
+  .light .text-gray-300 {
+    @apply text-gray-800;
+  }
+
+  /* Light mode background overrides */
+  .light .bg-surface-100 {
+    @apply bg-gray-100;
+  }
+
+  .light .bg-surface-200 {
+    @apply bg-gray-200;
+  }
+
+  .light .bg-surface-300 {
+    @apply bg-gray-300;
+  }
+
+  .light .hover\:text-white:hover {
+    @apply text-gray-900;
+  }
+
+  .light .hover\:text-brand\/10:hover {
+    @apply text-red-700;
+  }
+
   /* Custom scrollbar for Webkit */
   ::-webkit-scrollbar {
     width: 6px;
@@ -25,6 +166,17 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-500;
+  }
+
+  /* Light mode scrollbar */
+  .light ::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+  .light ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300;
+  }
+  .light ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
   }
 }
 
