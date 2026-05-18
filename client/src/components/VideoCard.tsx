@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart, Play, Clock, HardDrive } from 'lucide-react';
-import { Video } from '../types';
-import { formatDuration, formatFileSize, truncate } from '../utils/format';
-import { api } from '../utils/api';
+import { useState, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { Heart, Play, Clock, HardDrive } from "lucide-react";
+import { Video } from "../types";
+import { formatDuration, formatFileSize, truncate } from "../utils/format";
+import { api } from "../utils/api";
 
 interface VideoCardProps {
   video: Video;
@@ -11,24 +11,30 @@ interface VideoCardProps {
 }
 
 export default function VideoCard({ video, onFavoriteToggle }: VideoCardProps) {
-  const [isFav, setIsFav]         = useState(video.isFavorite);
-  const [imgError, setImgError]   = useState(false);
+  const [isFav, setIsFav] = useState(video.isFavorite);
+  const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  const toggleFav = useCallback(async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      const { isFavorite } = await api.videos.toggleFavorite(video.id);
-      setIsFav(isFavorite);
-      onFavoriteToggle?.(video.id, isFavorite);
-    } catch { /* silent */ }
-  }, [video.id, onFavoriteToggle]);
+  const toggleFav = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const { isFavorite } = await api.videos.toggleFavorite(video.id);
+        setIsFav(isFavorite);
+        onFavoriteToggle?.(video.id, isFavorite);
+      } catch {
+        /* silent */
+      }
+    },
+    [video.id, onFavoriteToggle],
+  );
 
   const thumbSrc = !imgError && video.thumbnail ? video.thumbnail : null;
-  const progress = video.watchProgress > 0.02 && video.watchProgress < 0.98
-    ? video.watchProgress
-    : null;
+  const progress =
+    video.watchProgress > 0.02 && video.watchProgress < 0.98
+      ? video.watchProgress
+      : null;
 
   return (
     <Link
@@ -52,27 +58,31 @@ export default function VideoCard({ video, onFavoriteToggle }: VideoCardProps) {
               onLoad={() => setImgLoaded(true)}
               onError={() => setImgError(true)}
               className={`w-full h-full object-cover transition-opacity duration-300
-                ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+                ${imgLoaded ? "opacity-100" : "opacity-0"}`}
             />
           </>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface-200">
             <Play size={28} className="text-gray-600" />
             <span className="text-xs text-gray-600 px-2 text-center">
-              {video.filename.split('.').pop()?.toUpperCase()}
+              {video.filename.split(".").pop()?.toUpperCase()}
             </span>
           </div>
         )}
 
         {/* Play overlay */}
-        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <Play size={22} className="text-white translate-x-0.5" fill="white" />
+        <div className="absolute inset-0 bg-black/50 dark:bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-white/20 dark:bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <Play
+              size={22}
+              className="text-white dark:text-white translate-x-0.5"
+              fill="white"
+            />
           </div>
         </div>
 
         {/* Duration badge */}
-        <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-white text-xs font-mono">
+        <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 dark:bg-black/80 text-white dark:text-white text-xs font-mono">
           {formatDuration(video.duration)}
         </div>
 
@@ -89,20 +99,20 @@ export default function VideoCard({ video, onFavoriteToggle }: VideoCardProps) {
         {/* Favorite button */}
         <button
           onClick={toggleFav}
-          className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60
+          className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 dark:bg-black/60
                      opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-          aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart
             size={14}
-            className={isFav ? 'text-brand fill-brand' : 'text-white'}
+            className={isFav ? "text-brand fill-brand" : "text-white dark:text-white"}
           />
         </button>
       </div>
 
       {/* Info */}
       <div className="p-2.5">
-        <h3 className="text-sm font-medium text-gray-100 leading-tight line-clamp-2 mb-1">
+        <h3 className="text-sm font-medium text-gray-100 dark:text-gray-100 leading-tight line-clamp-2 mb-1">
           {truncate(video.title, 60)}
         </h3>
         <p className="text-xs text-gray-500 mb-1.5">
