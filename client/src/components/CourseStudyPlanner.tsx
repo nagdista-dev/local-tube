@@ -170,20 +170,6 @@ export default function CourseStudyPlanner({
 
   return (
     <div className="mb-6 rounded-2xl border border-surface-200/50 bg-surface-50/30 overflow-hidden shadow-sm">
-      {/* D‑Tab notice */}
-      {showDTabNotice && (
-        <div className="flex items-center justify-between bg-emerald-500/10 border-b border-surface-200/30 p-3">
-          <div className="flex items-center gap-2 text-sm text-emerald-300">
-            <Info size={16} />
-            <span>Open this view in D‑Tab format for a richer visual experience.</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowDTabNotice(false)} className="p-1 rounded hover:bg-surface-200/30">
-              <X size={14} className="text-emerald-300" />
-            </button>
-          </div>
-        </div>
-      )}
       {/* Header Section */}
       <div className="relative p-6 bg-gradient-to-br from-emerald-500/10 via-surface-100/50 to-surface-50/30 border-b border-surface-200/50">
         <div className="absolute top-4 right-4">
