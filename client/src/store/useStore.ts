@@ -1,8 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { FilterState, SortOption } from "../types";
+import type { Locale } from "../i18n";
 
 interface AppStore {
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
   // Sidebar
   sidebarOpen: boolean;
   toggleSidebar: () => void;
@@ -38,6 +41,9 @@ const DEFAULT_FILTERS: FilterState = {
 export const useStore = create<AppStore>()(
   persist(
     (set) => ({
+      locale: "en",
+      setLocale: (locale) => set({ locale }),
+
       sidebarOpen: true,
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSidebarOpen: (v) => set({ sidebarOpen: v }),
@@ -64,6 +70,7 @@ export const useStore = create<AppStore>()(
     {
       name: "localtube-store",
       partialize: (s) => ({
+        locale: s.locale,
         sidebarOpen: s.sidebarOpen,
         filters: s.filters,
         theme: s.theme,

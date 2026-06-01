@@ -114,6 +114,54 @@ router.post("/categories/:category/course", (req: Request, res: Response) => {
   res.json({ category, isCourse });
 });
 
+// ─── GET /api/videos/categories/:category/study-plan ───────────────────
+router.get("/categories/:category/study-plan", (req: Request, res: Response) => {
+  try {
+    const category = decodeURIComponent(req.params.category);
+    if (!videoDb.isCourse(category)) {
+      return res.status(400).json({ error: "Folder is not marked as a course" });
+    }
+    res.json(videoDb.getStudyPlan(category));
+  } catch (err) {
+    console.error("[/api/videos/categories/study-plan GET]", err);
+    res.status(500).json({ error: "Failed to load study plan" });
+  }
+});
+
+// ─── PUT /api/videos/categories/:category/study-plan ────────────────────
+router.put("/categories/:category/study-plan", (req: Request, res: Response) => {
+  try {
+    const category = decodeURIComponent(req.params.category);
+    if (!videoDb.isCourse(category)) {
+      return res.status(400).json({ error: "Folder is not marked as a course" });
+    }
+
+    const { dailyMinutes, studyDays, taskChecks } = req.body as {
+      dailyMinutes?: number;
+      studyDays?: number[];
+      taskChecks?: Record<string, Record<string, boolean>>;
+    };
+
+    if (typeof dailyMinutes !== "number" || dailyMinutes < 0) {
+      return res.status(400).json({ error: "dailyMinutes must be a non-negative number" });
+    }
+    if (!Array.isArray(studyDays)) {
+      return res.status(400).json({ error: "studyDays must be an array" });
+    }
+
+    const plan = videoDb.saveStudyPlan({
+      category,
+      dailyMinutes,
+      studyDays,
+      taskChecks: taskChecks || {},
+    });
+    res.json(plan);
+  } catch (err) {
+    console.error("[/api/videos/categories/study-plan PUT]", err);
+    res.status(500).json({ error: "Failed to save study plan" });
+  }
+});
+
 // ─── GET /api/videos/history ──────────────────────────────────────────────
 router.get("/history", (req: Request, res: Response) => {
   const limit = Math.min(50, parseInt(req.query.limit as string) || 12);
@@ -299,6 +347,18 @@ router.post("/external", (req: Request, res: Response) => {
       .status(500)
       .json({ error: err.message || "Failed to save external video link" });
   }
+});
+
+// ─── PATCH /api/videos/:id ───────────────────────────────────────────────
+router.patch("/:id", (req: Request, res: Response) => {
+  const { title } = req.body as { title?: string };
+  if (typeof title !== "string" || !title.trim()) {
+    return res.status(400).json({ error: "title is required" });
+  }
+  const ok = videoDb.updateTitle(req.params.id, title);
+  if (!ok) return res.status(404).json({ error: "Video not found" });
+  const video = videoDb.findById(req.params.id);
+  res.json(video);
 });
 
 // ─── GET /api/videos/:id ──────────────────────────────────────────────────

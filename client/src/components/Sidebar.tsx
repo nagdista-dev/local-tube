@@ -14,18 +14,31 @@ import {
   CheckCircle2,
   Search,
   X,
+  Download,
+  BookOpen,
+  Github,
+  Mail,
+  Timer,
+  Wrench,
 } from "lucide-react";
 import { api } from "../utils/api";
 import { useStore } from "../store/useStore";
+import { useTranslation } from "../i18n";
 import { Category } from "../types";
 import { isArabic } from "../utils/format";
 
 const NAV_LINKS = [
-  { to: "/", icon: Home, label: "Home" },
-  { to: "/continue-watching", icon: Play, label: "Continue Watching" },
-  { to: "/history", icon: History, label: "Watch History" },
-  { to: "/favorites", icon: Heart, label: "Favorites" },
-];
+  { to: "/", icon: Home, labelKey: "sidebar.home" },
+  { to: "/continue-watching", icon: Play, labelKey: "sidebar.continueWatching" },
+  { to: "/history", icon: History, labelKey: "sidebar.history" },
+  { to: "/favorites", icon: Heart, labelKey: "sidebar.favorites" },
+  { to: "/downloads", icon: Download, labelKey: "sidebar.downloads" },
+] as const;
+
+const TOOLS_LINKS = [
+  { to: "/pomodoro", icon: Timer, labelKey: "sidebar.pomodoro" },
+  { to: "/guide", icon: BookOpen, labelKey: "sidebar.howToUse" },
+] as const;
 
 function categoryMatches(category: Category, query: string): boolean {
   const value = query.trim().toLowerCase();
@@ -57,6 +70,7 @@ function CategoryTree({
   onSelectCategory,
   forceExpanded = false,
   level = 0,
+  t,
 }: {
   category: Category;
   activeCategory: string;
@@ -65,6 +79,7 @@ function CategoryTree({
   onSelectCategory: (path: string) => void;
   forceExpanded?: boolean;
   level?: number;
+  t: (key: string) => string;
 }) {
   const isExpanded = forceExpanded || expandedFolders.has(category.path);
   const hasSubcategories = category.subcategories?.length > 0;
@@ -91,7 +106,7 @@ function CategoryTree({
                 onToggleExpand(category.path);
               }}
               className="p-1 rounded hover:bg-surface-300 text-gray-500 hover:text-white transition-colors cursor-pointer"
-              title={isExpanded ? "Close folder" : "Open folder"}
+              title={isExpanded ? t("sidebar.closeFolder") : t("sidebar.openFolder")}
             >
               {isExpanded ? (
                 <ChevronDown size={13} className="shrink-0" />
@@ -113,7 +128,13 @@ function CategoryTree({
               }
             }}
             className="p-1 rounded hover:bg-surface-300 transition-colors cursor-pointer"
-            title={hasSubcategories ? (isExpanded ? "Close folder" : "Open folder") : category.name}
+            title={
+              hasSubcategories
+                ? isExpanded
+                  ? t("sidebar.closeFolder")
+                  : t("sidebar.openFolder")
+                : category.name
+            }
           >
             {hasSubcategories && isExpanded ? (
               <FolderOpen
@@ -141,7 +162,7 @@ function CategoryTree({
               onToggleExpand(category.path);
             }
           }}
-          className="flex-1 flex items-center gap-2 py-2 pr-3 pl-1 text-left min-w-0 cursor-pointer"
+          className="flex-1 flex items-center gap-2 py-2 pe-3 ps-1 text-start min-w-0 cursor-pointer"
         >
           <span
             className={`flex-1 truncate ${
@@ -154,7 +175,7 @@ function CategoryTree({
           {category.isCourse && (
             <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
           )}
-          <span className="text-xs text-gray-600 font-normal shrink-0 ml-1">
+          <span className="text-xs text-gray-600 font-normal shrink-0 ms-1">
             {category.count}
           </span>
         </button>
@@ -173,6 +194,7 @@ function CategoryTree({
               onSelectCategory={onSelectCategory}
               forceExpanded={forceExpanded}
               level={level + 1}
+              t={t}
             />
           ))}
         </div>
@@ -182,6 +204,7 @@ function CategoryTree({
 }
 
 export default function Sidebar() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const isOpen = useStore((s) => s.sidebarOpen);
@@ -303,8 +326,8 @@ export default function Sidebar() {
 
   if (!isOpen) {
     return (
-      <aside className="w-14 shrink-0 flex flex-col gap-1 py-4 px-2 border-r border-surface-200 bg-surface/80">
-        {NAV_LINKS.map(({ to, icon: Icon, label }) => (
+      <aside className="w-14 shrink-0 flex flex-col gap-1 py-4 px-2 border-e border-surface-200 bg-surface/80">
+        {NAV_LINKS.map(({ to, icon: Icon, labelKey }) => (
           <Link
             key={to}
             to={to}
@@ -319,7 +342,25 @@ export default function Sidebar() {
                   ? "bg-brand text-white"
                   : "text-gray-400 hover:bg-surface-200 hover:text-white"
               }`}
-            title={label}
+            title={t(labelKey)}
+          >
+            <Icon size={20} />
+          </Link>
+        ))}
+
+        <div className="mx-2 my-1 border-t border-surface-200" />
+
+        {TOOLS_LINKS.map(({ to, icon: Icon, labelKey }) => (
+          <Link
+            key={to}
+            to={to}
+            className={`p-3 rounded-lg transition-colors flex items-center justify-center
+              ${
+                location.pathname === to
+                  ? "bg-brand text-white"
+                  : "text-gray-400 hover:bg-surface-200 hover:text-white"
+              }`}
+            title={t(labelKey)}
           >
             <Icon size={20} />
           </Link>
@@ -341,20 +382,38 @@ export default function Sidebar() {
             </button>
           ))}
         </div>
+        <div className="mt-auto pt-2 flex flex-col gap-1">
+          <a
+            href="https://github.com/nagdista-dev/local-tube"
+            target="_blank"
+            rel="noreferrer"
+            className="p-3 rounded-lg transition-colors flex items-center justify-center text-gray-400 hover:bg-surface-200 hover:text-white"
+            title="Starring on GitHub"
+          >
+            <Github size={18} />
+          </a>
+          <a
+            href="mailto:nagdista@gmail.com?subject=LocalTube%20Feedback/Problem"
+            className="p-3 rounded-lg transition-colors flex items-center justify-center text-gray-400 hover:bg-surface-200 hover:text-white"
+            title="Report a Problem"
+          >
+            <Mail size={18} />
+          </a>
+        </div>
       </aside>
     );
   }
 
   return (
     <aside
-      className={`shrink-0 flex flex-col py-4 border-r border-surface-200 bg-surface/80 overflow-y-auto relative ${
+      className={`shrink-0 flex flex-col py-4 border-e border-surface-200 bg-surface/80 overflow-y-auto relative ${
         isResizing ? "select-none" : ""
       }`}
       style={{ width: `${width}px` }}
     >
       {/* Main nav */}
       <nav className="px-3 flex flex-col gap-0.5">
-        {NAV_LINKS.map(({ to, icon: Icon, label }) => (
+        {NAV_LINKS.map(({ to, icon: Icon, labelKey }) => (
           <Link
             key={to}
             to={to}
@@ -371,7 +430,30 @@ export default function Sidebar() {
               }`}
           >
             <Icon size={18} />
-            {label}
+            {t(labelKey)}
+          </Link>
+        ))}
+
+        <div className="flex items-center gap-2 px-3 mt-4 mb-2">
+          <Wrench size={14} className="text-gray-500 shrink-0" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-gray-500 truncate">
+            Tools Menu
+          </span>
+        </div>
+
+        {TOOLS_LINKS.map(({ to, icon: Icon, labelKey }) => (
+          <Link
+            key={to}
+            to={to}
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+              ${
+                location.pathname === to
+                  ? "bg-surface-200 text-white"
+                  : "text-gray-400 hover:bg-surface-100 hover:text-white"
+              }`}
+          >
+            <Icon size={18} />
+            {t(labelKey)}
           </Link>
         ))}
       </nav>
@@ -385,34 +467,34 @@ export default function Sidebar() {
           <div className="flex items-center gap-2 min-w-0">
             <Tv2 size={14} className="text-gray-500 shrink-0" />
             <span className="text-xs font-semibold uppercase tracking-widest text-gray-500 truncate">
-              Library
+              {t("sidebar.library")}
             </span>
           </div>
           <button
             onClick={collapseAllFolders}
             className="text-[11px] font-medium text-gray-500 hover:text-white transition-colors shrink-0"
-            title="Collapse all folders"
+            title={t("sidebar.collapseAllTitle")}
           >
-            Collapse all
+            {t("sidebar.collapseAll")}
           </button>
         </div>
 
         <div className="relative mb-2">
           <Search
             size={13}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none"
+            className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none"
           />
           <input
             value={folderSearch}
             onChange={(e) => setFolderSearch(e.target.value)}
-            placeholder="Search folders"
-            className="w-full h-8 rounded-lg bg-surface-100 border border-surface-200 pl-8 pr-8 text-xs text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/40"
+            placeholder={t("sidebar.searchFolders")}
+            className="w-full h-8 rounded-lg bg-surface-100 border border-surface-200 ps-8 pe-8 text-xs text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/40"
           />
           {folderSearch && (
             <button
               onClick={() => setFolderSearch("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors"
-              title="Clear folder search"
+              className="absolute end-2.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors"
+              title={t("sidebar.clearFolderSearch")}
             >
               <X size={13} />
             </button>
@@ -430,14 +512,35 @@ export default function Sidebar() {
               onSelectCategory={handleCategory}
               forceExpanded={isFilteringFolders}
               level={0}
+              t={t}
             />
           ))}
           {isFilteringFolders && filteredCategories.length === 0 && (
             <div className="px-3 py-2 text-xs text-gray-500">
-              No matching folders.
+              {t("sidebar.noMatchingFolders")}
             </div>
           )}
         </div>
+      </div>
+
+      {/* Bottom Links */}
+      <div className="mt-auto px-3 pt-4 pb-2 flex flex-col gap-1">
+        <a
+          href="https://github.com/nagdista-dev/local-tube"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-surface-100 hover:text-white transition-colors"
+        >
+          <Github size={16} />
+          Starring on GitHub
+        </a>
+        <a
+          href="mailto:nagdista@gmail.com?subject=LocalTube%20Feedback/Problem"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-surface-100 hover:text-white transition-colors"
+        >
+          <Mail size={16} />
+          Report a Problem
+        </a>
       </div>
 
       {/* Resizer Handle */}
@@ -447,7 +550,7 @@ export default function Sidebar() {
           setWidth(240);
           localStorage.setItem("sidebar-width", "240");
         }}
-        className={`absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand/60 group active:bg-brand transition-all z-50
+        className={`absolute top-0 end-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand/60 group active:bg-brand transition-all z-50
           ${isResizing ? "bg-brand/80 w-2" : "bg-transparent"}
         `}
       >

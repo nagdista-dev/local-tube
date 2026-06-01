@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,8 +11,13 @@ import {
   Minimize,
   Settings,
   SkipForward,
+  SkipBack,
   ChevronLeft,
+  ChevronRight,
   Timer,
+  Link2,
+  Pencil,
+  HelpCircle,
   ChevronsRight,
   RectangleHorizontal,
   PictureInPicture2,
@@ -26,10 +31,13 @@ import {
 } from "lucide-react";
 import { api, streamUrl } from "../utils/api";
 import { formatDuration, formatFileSize, isArabic } from "../utils/format";
+import { sortVideosByTitle } from "../utils/sort";
 import { Category, Video, VideoListResponse, YouTubeMetadata } from "../types";
+import KeyboardShortcutsHelp from "../components/KeyboardShortcutsHelp";
+import { useTranslation } from "../i18n";
 
 type ViewMode = "normal" | "theater" | "mini";
-type PlayerTab = "details" | "videos" | "comments" | "description";
+type PlayerTab = "details" | "course" | "comments" | "description";
 
 // ─── Progress bar component ───────────────────────────────────────────────
 
@@ -218,6 +226,7 @@ function CoursePlayerSidebar({
   onToggleWatched?: (video: Video) => void;
   embedded?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <aside
       className={
@@ -231,30 +240,34 @@ function CoursePlayerSidebar({
       >
         <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold uppercase tracking-widest mb-2">
           <BookOpen size={15} />
-          Course Playlist
+          {t("player.coursePlaylist")}
         </div>
         <h2 className="text-lg font-bold text-white leading-tight">
           {courseTitle}
         </h2>
         <p className="text-xs text-gray-400 mt-2">
-          {completedCount} of {videos.length} lessons finished
+          {t("player.lessonsFinished", {
+            done: completedCount,
+            total: videos.length,
+          })}
           {remainingDuration > 0
-            ? ` · ${formatDuration(remainingDuration)} left`
-            : " · Complete"}
+            ? ` · ${t("player.left", { duration: formatDuration(remainingDuration) })}`
+            : ` · ${t("player.complete")}`}
         </p>
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-            <span>{Math.round(courseProgress * 100)}% complete</span>
+            <span>{t("player.percentWatched", { percent: Math.round(courseProgress * 100) })}</span>
             <span>
-              {formatDuration(
-                videos.reduce(
-                  (sum, v) =>
-                    sum +
-                    Math.max(v.duration * Math.min(v.watchProgress, 1), 0),
-                  0,
+              {t("player.watched", {
+                duration: formatDuration(
+                  videos.reduce(
+                    (sum, v) =>
+                      sum +
+                      Math.max(v.duration * Math.min(v.watchProgress, 1), 0),
+                    0,
+                  ),
                 ),
-              )}{" "}
-              watched
+              })}
             </span>
           </div>
           <div className="h-2.5 rounded-full bg-surface-200 overflow-hidden">
@@ -269,190 +282,397 @@ function CoursePlayerSidebar({
       <div
         className={`${embedded ? "max-h-[56vh]" : "max-h-[52vh] lg:max-h-[calc(100vh-19rem)]"} overflow-y-auto p-2`}
       >
-        {videos.map((lesson, index) => {
-          const active = lesson.id === currentVideoId;
-          const finished = lesson.watchProgress >= 0.98;
-          const progress = Math.max(0, Math.min(lesson.watchProgress, 1));
+        {videos.length === 0 ? (
+          <p className="px-3 py-6 text-sm text-gray-400 text-center">
+            {t("player.noOtherVideos")}
+          </p>
+        ) : (
+          videos.map((lesson, index) => {
+            const active = lesson.id === currentVideoId;
+            const finished = lesson.watchProgress >= 0.98;
+            const progress = Math.max(0, Math.min(lesson.watchProgress, 1));
 
-          return (
-            <div
-              key={lesson.id}
-              className={`w-full rounded-2xl p-3 transition-all mb-1.5 border ${
-                active
-                  ? "bg-brand/15 text-white border-brand/30 shadow-lg shadow-black/20"
-                  : "bg-surface-200/70 text-gray-200 border-transparent hover:bg-surface-200 hover:border-surface-300"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    finished
-                      ? "bg-emerald-500 text-white"
-                      : active
-                        ? "bg-white/15 text-white"
-                        : "bg-surface-300 text-gray-300"
-                  }`}
-                >
-                  {finished ? <CheckCircle2 size={15} /> : index + 1}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={`text-sm font-semibold leading-snug line-clamp-2 ${active ? "text-white" : "text-white"}`}
+            return (
+              <div
+                key={lesson.id}
+                className={`w-full rounded-2xl p-3 transition-all mb-1.5 border ${
+                  active
+                    ? "bg-brand/15 text-white border-brand/30 shadow-lg shadow-black/20"
+                    : "bg-surface-200/70 text-gray-200 border-transparent hover:bg-surface-200 hover:border-surface-300"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onSelect(lesson.id)}
+                    className="flex items-start gap-3 min-w-0 flex-1 text-left"
                   >
-                    {lesson.title}
-                  </p>
-                  <div
-                    className={`mt-1 flex items-center gap-2 text-[11px] ${active ? "text-white/65" : "text-gray-400"}`}
-                  >
-                    {finished ? (
-                      <CheckCircle2 size={12} />
-                    ) : (
-                      <Circle size={12} />
-                    )}
-                    <span>
-                      {finished ? "Finished" : formatDuration(lesson.duration)}
-                    </span>
-                  </div>
-                  {!finished && progress > 0.02 && (
                     <div
-                      className={`mt-2 h-1 rounded-full overflow-hidden ${active ? "bg-white/20" : "bg-surface-300"}`}
+                      className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        finished
+                          ? "bg-emerald-500 text-white"
+                          : active
+                            ? "bg-white/15 text-white"
+                            : "bg-surface-300 text-gray-300"
+                      }`}
                     >
-                      <div
-                        className="h-full rounded-full bg-emerald-400"
-                        style={{ width: `${progress * 100}%` }}
-                      />
+                      {finished ? <CheckCircle2 size={15} /> : index + 1}
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-sm font-semibold leading-snug line-clamp-2 ${
+                          active ? "text-white" : "text-gray-100"
+                        }`}
+                      >
+                        {lesson.title}
+                      </p>
+                      <div
+                        className={`mt-1 flex items-center gap-2 text-[11px] ${
+                          active ? "text-white/65" : "text-gray-400"
+                        }`}
+                      >
+                        {finished ? (
+                          <CheckCircle2 size={12} />
+                        ) : (
+                          <Circle size={12} />
+                        )}
+                        <span>
+                          {finished
+                            ? t("videoCard.finished")
+                            : formatDuration(lesson.duration)}
+                        </span>
+                      </div>
+                      {!finished && progress > 0.02 && (
+                        <div
+                          className={`mt-2 h-1 rounded-full overflow-hidden ${
+                            active ? "bg-white/20" : "bg-surface-300"
+                          }`}
+                        >
+                          <div
+                            className="h-full rounded-full bg-emerald-400"
+                            style={{ width: `${progress * 100}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                  {onToggleWatched && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleWatched(lesson);
+                      }}
+                      title={
+                        finished
+                          ? t("player.markUnwatchedTitle")
+                          : t("player.markWatchedTitle")
+                      }
+                      className={`shrink-0 px-2.5 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap transition-all ${
+                        finished
+                          ? "border-emerald-500/30 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20"
+                          : "border-surface-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-200 hover:bg-surface-200"
+                      }`}
+                    >
+                      {finished ? t("player.markUnwatched") : t("player.markWatched")}
+                    </button>
                   )}
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </aside>
   );
 }
 
-function VideoDetailsPanel({
+function VideoInfoHeader({
   video,
+  youtubeId,
+  youtubeMetadata,
+  canEditTitle,
+  onTitleSaved,
+}: {
+  video: Video;
+  youtubeId?: string | null;
+  youtubeMetadata?: YouTubeMetadata;
+  canEditTitle?: boolean;
+  onTitleSaved?: (title: string) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const displayTitle = youtubeMetadata?.title || video.title;
+  const displayDuration = youtubeMetadata?.durationSeconds || video.duration;
+  const arabic = isArabic(displayTitle);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(displayTitle);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft(displayTitle);
+    setEditing(false);
+  }, [video.id, displayTitle]);
+
+  const saveTitle = async () => {
+    if (!onTitleSaved || !draft.trim()) return;
+    setSaving(true);
+    try {
+      await onTitleSaved(draft.trim());
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 min-w-0">
+      {editing ? (
+        <div className="flex flex-col sm:flex-row gap-2 mb-2.5">
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="flex-1 rounded-xl border border-surface-300 bg-surface-200 px-3 py-2 text-sm text-white focus:border-brand focus:outline-none"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void saveTitle();
+              if (e.key === "Escape") {
+                setDraft(displayTitle);
+                setEditing(false);
+              }
+            }}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void saveTitle()}
+              disabled={saving || !draft.trim()}
+              className="px-3 py-2 rounded-xl bg-brand text-white text-sm font-medium disabled:opacity-50"
+            >
+              {t("player.save")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(displayTitle);
+                setEditing(false);
+              }}
+              className="px-3 py-2 rounded-xl border border-surface-300 text-sm text-gray-300"
+            >
+              {t("nav.cancel")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2 mb-2.5">
+          <h1
+            className={`flex-1 text-xl sm:text-2xl font-bold text-white leading-snug break-words ${
+              arabic ? "font-arabic text-right" : ""
+            }`}
+            dir={arabic ? "rtl" : undefined}
+          >
+            {displayTitle}
+          </h1>
+          {canEditTitle && onTitleSaved && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-surface-200 transition-colors"
+              title={t("player.renameTitle")}
+            >
+              <Pencil size={16} />
+            </button>
+          )}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        {youtubeId && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 text-red-300 border border-red-500/20 rounded-lg text-xs font-medium">
+            <Youtube size={13} />
+            {t("player.youtube")}
+          </span>
+        )}
+        <span className="px-2.5 py-1 bg-surface-200/90 text-gray-100 rounded-lg text-xs font-medium">
+          {video.category}
+        </span>
+        {video.subcategory && (
+          <span className="px-2.5 py-1 bg-surface-200/90 text-gray-100 rounded-lg text-xs font-medium">
+            {video.subcategory}
+          </span>
+        )}
+        {displayDuration > 0 && (
+          <span className="px-2 py-1 text-gray-400 text-xs tabular-nums">
+            {formatDuration(displayDuration)}
+          </span>
+        )}
+        {video.fileSize > 0 && (
+          <span className="px-2 py-1 text-gray-400 text-xs">
+            {formatFileSize(video.fileSize)}
+          </span>
+        )}
+        {video.resolution && (
+          <span className="px-2 py-1 text-gray-400 text-xs">{video.resolution}</span>
+        )}
+        {youtubeMetadata?.channelTitle && (
+          <span className="px-2 py-1 text-gray-400 text-xs truncate max-w-[14rem]">
+            {youtubeMetadata.channelTitle}
+          </span>
+        )}
+      </div>
+      {youtubeMetadata?.unavailableReason && (
+        <p className="mt-3 max-w-2xl text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+          {youtubeMetadata.unavailableReason}
+        </p>
+      )}
+      {video.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {video.tags.map((tag) => (
+            <span
+              key={tag}
+              className="px-2 py-0.5 bg-surface-200/80 text-gray-300 text-xs rounded-full"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VideoInfoActions({
   id,
   isFav,
   currentFinished,
   activeCourse,
-  youtubeId,
-  youtubeMetadata,
   onToggleFavorite,
-  onMarkRead,
+  onToggleFinished,
+  onCopyLink,
+  linkCopied,
+  autoPlayNext,
+  onToggleAutoPlayNext,
+  showAutoPlay,
+  onShowShortcuts,
 }: {
-  video: Video;
   id?: string;
   isFav: boolean;
   currentFinished: boolean;
   activeCourse?: Category;
-  youtubeId?: string | null;
-  youtubeMetadata?: YouTubeMetadata;
   onToggleFavorite: () => void;
-  onMarkRead: () => void;
+  onToggleFinished: () => void;
+  onCopyLink?: () => void;
+  linkCopied?: boolean;
+  autoPlayNext?: boolean;
+  onToggleAutoPlayNext?: () => void;
+  showAutoPlay?: boolean;
+  onShowShortcuts?: () => void;
 }) {
-  const displayTitle = youtubeMetadata?.title || video.title;
-  const displayDuration = youtubeMetadata?.durationSeconds || video.duration;
+  const { t } = useTranslation();
+  if (id === "external") return null;
 
   return (
-    <div className="p-4">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h1
-            className={`text-xl sm:text-2xl font-bold text-white mb-3 leading-snug break-words ${
-              isArabic(displayTitle) ? "font-arabic text-right" : ""
+    <div className="flex flex-wrap gap-2 shrink-0 sm:justify-end">
+      {onShowShortcuts && (
+        <button
+          type="button"
+          onClick={onShowShortcuts}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-surface-300 text-sm text-gray-300 hover:text-white hover:border-surface-200 transition-all"
+          title={t("player.shortcutsTitle")}
+        >
+          <HelpCircle size={17} />
+          <span className="hidden sm:inline">{t("player.shortcuts")}</span>
+        </button>
+      )}
+      {onCopyLink && (
+        <button
+          type="button"
+          onClick={onCopyLink}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-surface-300 text-sm text-gray-300 hover:text-white hover:border-surface-200 transition-all"
+        >
+          <Link2 size={17} />
+          {linkCopied ? t("player.copied") : t("player.copyLink")}
+        </button>
+      )}
+      {showAutoPlay && onToggleAutoPlayNext && (
+        <button
+          type="button"
+          onClick={onToggleAutoPlayNext}
+          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+            autoPlayNext
+              ? "border-brand text-brand bg-brand/10"
+              : "border-surface-300 text-gray-300 hover:border-brand hover:text-brand"
+          }`}
+        >
+          <SkipForward size={17} />
+          {t("player.autoplayNext")}
+        </button>
+      )}
+      <button
+        onClick={onToggleFavorite}
+        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm font-medium transition-all ${
+          isFav
+            ? "border-brand text-brand bg-brand/10"
+            : "border-surface-300 text-gray-300 hover:border-brand hover:text-brand"
+        }`}
+      >
+        <Heart size={17} className={isFav ? "fill-brand" : ""} />
+        {isFav ? t("player.favorited") : t("player.favorite")}
+      </button>
+      {activeCourse && (
+        <button
+          onClick={onToggleFinished}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm font-medium transition-all ${
+            currentFinished
+              ? "border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
+              : "border-surface-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-300"
+          }`}
+        >
+          {currentFinished ? (
+            <CheckCircle2 size={17} />
+          ) : (
+            <Circle size={17} />
+          )}
+          {currentFinished ? t("videoCard.markUnfinished") : t("videoCard.markFinished")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PlayerInfoTabs({
+  tabs,
+  activeTab,
+  onTabChange,
+}: {
+  tabs: { id: PlayerTab; label: string; icon: typeof MessageCircle }[];
+  activeTab: PlayerTab;
+  onTabChange: (tab: PlayerTab) => void;
+}) {
+  return (
+    <div
+      className="sticky top-0 z-20 flex gap-1 px-3 sm:px-4 pt-1 border-b border-surface-200/50 overflow-x-auto bg-surface-100/95 backdrop-blur-md"
+      role="tablist"
+    >
+      {tabs.map(({ id, label, icon: Icon }) => {
+        const active = activeTab === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onTabChange(id)}
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+              active
+                ? "border-brand text-white"
+                : "border-transparent text-gray-500 hover:text-gray-200"
             }`}
-            dir={isArabic(displayTitle) ? "rtl" : undefined}
           >
-            {displayTitle}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
-            {youtubeId && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 text-red-300 border border-red-500/20 rounded-lg text-xs font-medium">
-                <Youtube size={13} />
-                YouTube
-              </span>
-            )}
-            <span className="px-2.5 py-1 bg-surface-200 text-white rounded-lg text-xs font-medium">
-              {video.category}
-            </span>
-            {video.subcategory && (
-              <span className="px-2.5 py-1 bg-surface-200 text-white rounded-lg text-xs font-medium">
-                {video.subcategory}
-              </span>
-            )}
-            {displayDuration > 0 && (
-              <span className="text-gray-400 text-xs">
-                {formatDuration(displayDuration)}
-              </span>
-            )}
-            {video.fileSize > 0 && (
-              <span className="text-gray-400 text-xs">
-                {formatFileSize(video.fileSize)}
-              </span>
-            )}
-            {video.resolution && (
-              <span className="text-gray-400 text-xs">{video.resolution}</span>
-            )}
-            {youtubeMetadata?.channelTitle && (
-              <span className="text-gray-400 text-xs">
-                {youtubeMetadata.channelTitle}
-              </span>
-            )}
-          </div>
-          {youtubeMetadata?.unavailableReason && (
-            <p className="mt-3 max-w-2xl text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
-              {youtubeMetadata.unavailableReason}
-            </p>
-          )}
-          {video.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {video.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 bg-surface-200 text-gray-300 text-xs rounded-full"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2 shrink-0">
-          {id !== "external" && (
-            <button
-              onClick={onToggleFavorite}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
-                isFav
-                  ? "border-brand text-brand bg-brand/10"
-                  : "border-surface-300 text-gray-300 hover:border-brand hover:text-brand"
-              }`}
-            >
-              <Heart size={18} className={isFav ? "fill-brand" : ""} />
-              {isFav ? "Favorited" : "Favorite"}
-            </button>
-          )}
-
-          {id !== "external" && activeCourse && (
-            <button
-              onClick={onMarkRead}
-              disabled={currentFinished}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
-                currentFinished
-                  ? "border-emerald-500/40 text-emerald-300 bg-emerald-500/10 cursor-default"
-                  : "border-surface-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-300"
-              }`}
-            >
-              <CheckCircle2 size={18} />
-              {currentFinished ? "Read" : "Mark as Read"}
-            </button>
-          )}
-        </div>
-      </div>
+            <Icon size={15} />
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -466,14 +686,15 @@ function YouTubeCommentsPanel({
   isLoading: boolean;
   error: boolean;
 }) {
+  const { t } = useTranslation();
   if (isLoading) {
-    return <div className="p-4 text-sm text-gray-400">Loading comments...</div>;
+    return <div className="p-4 text-sm text-gray-400">{t("player.loadingComments")}</div>;
   }
 
   if (error) {
     return (
       <div className="p-4 text-sm text-red-300">
-        Unable to load YouTube comments.
+        {t("player.commentsError")}
       </div>
     );
   }
@@ -489,18 +710,18 @@ function YouTubeCommentsPanel({
   if (!metadata?.comments.length) {
     return (
       <div className="p-4 text-sm text-gray-400">
-        No comments found for this video.
+        {t("player.noComments")}
       </div>
     );
   }
 
   return (
     <div className="max-h-[52vh] overflow-y-auto p-3 sm:p-4">
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         {metadata.comments.map((comment) => (
           <article
             key={comment.id}
-            className="rounded-2xl border border-surface-200/70 bg-surface-200/50 p-4"
+            className="rounded-xl border border-surface-200/60 bg-surface-200/40 p-3.5 sm:p-4"
           >
             <div className="flex items-center justify-between gap-3 mb-2">
               <p className="text-sm font-semibold text-white truncate">
@@ -508,7 +729,7 @@ function YouTubeCommentsPanel({
               </p>
               {comment.likeCount > 0 && (
                 <span className="text-[11px] text-gray-500 shrink-0">
-                  {comment.likeCount} likes
+                  {t("player.likes", { count: comment.likeCount })}
                 </span>
               )}
             </div>
@@ -531,16 +752,17 @@ function YouTubeDescriptionPanel({
   isLoading: boolean;
   error: boolean;
 }) {
+  const { t, locale } = useTranslation();
   if (isLoading) {
     return (
-      <div className="p-4 text-sm text-gray-400">Loading description...</div>
+      <div className="p-4 text-sm text-gray-400">{t("player.loadingDescription")}</div>
     );
   }
 
   if (error) {
     return (
       <div className="p-4 text-sm text-red-300">
-        Unable to load YouTube description.
+        {t("player.descriptionError")}
       </div>
     );
   }
@@ -554,27 +776,25 @@ function YouTubeDescriptionPanel({
   }
 
   return (
-    <div className="p-4">
-      <h2 className="text-lg font-bold text-white mb-2 break-words">
-        {metadata?.title || "YouTube Description"}
-      </h2>
-      <div className="flex flex-wrap gap-2 text-xs text-gray-400 mb-4">
-        {metadata?.channelTitle && <span>{metadata.channelTitle}</span>}
-        {metadata?.durationSeconds ? (
-          <span>{formatDuration(metadata.durationSeconds)}</span>
-        ) : null}
-        {metadata?.publishedAt && (
-          <span>{new Date(metadata.publishedAt).toLocaleDateString()}</span>
-        )}
-      </div>
+    <div className="p-4 sm:p-5 max-h-[52vh] overflow-y-auto">
+      {metadata?.publishedAt && (
+        <p className="text-xs text-gray-500 mb-3">
+          {t("player.published", {
+            date: new Date(metadata.publishedAt).toLocaleDateString(
+              locale === "ar" ? "ar" : undefined,
+            ),
+          })}
+        </p>
+      )}
       <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
-        {metadata?.description || "No description available."}
+        {metadata?.description || t("player.noDescription")}
       </p>
     </div>
   );
 }
 
 export default function Player() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -595,12 +815,12 @@ export default function Player() {
     id === "external" && externalUrl
       ? {
           id: "external",
-          title: "External Stream",
-          filename: "External Stream",
+          title: t("player.externalStream"),
+          filename: t("player.externalStream"),
           path: externalUrl,
           relativePath: externalUrl,
-          category: "Quick Play",
-          subcategory: "Web",
+          category: t("player.quickPlay"),
+          subcategory: t("player.web"),
           duration: 0,
           fileSize: 0,
           resolution: "HD",
@@ -698,6 +918,15 @@ export default function Player() {
   const [ytStart, setYtStart] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("normal");
   const [activeTab, setActiveTab] = useState<PlayerTab>("details");
+  const [autoPlayNext, setAutoPlayNext] = useState(
+    () => localStorage.getItem("autoPlayNext") !== "false",
+  );
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("autoPlayNext", String(autoPlayNext));
+  }, [autoPlayNext]);
 
   // Sleep timer states
   const [sleepTimeLeft, setSleepTimeLeft] = useState<number | null>(null);
@@ -1055,60 +1284,26 @@ export default function Player() {
     }
   }, []);
 
-  // ── Keyboard shortcuts ───────────────────────────────────────────────────
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
-        return;
-      }
+  const copyWatchLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      /* silent */
+    }
+  }, []);
 
-      const videoEl = videoRef.current;
-      if (!videoEl) return;
-
-      switch (e.key) {
-        case " ":
-        case "k":
-          e.preventDefault();
-          videoEl.paused ? videoEl.play() : videoEl.pause();
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          videoEl.currentTime = Math.min(
-            videoEl.duration,
-            videoEl.currentTime + 10,
-          );
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          videoEl.currentTime = Math.max(0, videoEl.currentTime - 10);
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          videoEl.volume = Math.min(1, videoEl.volume + 0.1);
-          videoEl.muted = false;
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          videoEl.volume = Math.max(0, videoEl.volume - 0.1);
-          break;
-        case "f":
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-        case "m":
-          e.preventDefault();
-          videoEl.muted = !videoEl.muted;
-          break;
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [toggleFullscreen]);
+  const saveVideoTitle = useCallback(
+    async (title: string) => {
+      if (!id || id === "external") return;
+      const updated = await api.videos.updateTitle(id, title);
+      queryClient.setQueryData(["video", id], updated);
+      queryClient.invalidateQueries({ queryKey: ["videos"] });
+      queryClient.invalidateQueries({ queryKey: ["course-videos", activeCourse?.path] });
+    },
+    [id, queryClient, activeCourse?.path],
+  );
 
   useEffect(() => {
     const handler = () => setFullscreen(!!document.fullscreenElement);
@@ -1176,6 +1371,151 @@ export default function Player() {
     }
   };
 
+  const showCourseTabs = Boolean(
+    activeCourse?.isCourse && id !== "external" && courseVideos.length > 0,
+  );
+  const showYouTubeTabs = Boolean(youtubeId);
+
+  const sortedCourseVideos = useMemo(
+    () => sortVideosByTitle(courseVideos),
+    [courseVideos],
+  );
+
+  const otherCourseVideos = useMemo(
+    () => sortedCourseVideos.filter((lesson) => lesson.id !== video?.id),
+    [sortedCourseVideos, video?.id],
+  );
+
+  const courseNav = useMemo(() => {
+    const idx = sortedCourseVideos.findIndex((v) => v.id === video?.id);
+    return {
+      prev: idx > 0 ? sortedCourseVideos[idx - 1] : null,
+      next:
+        idx >= 0 && idx < sortedCourseVideos.length - 1
+          ? sortedCourseVideos[idx + 1]
+          : null,
+    };
+  }, [sortedCourseVideos, video?.id]);
+
+  const playNextLesson = useCallback(() => {
+    if (!autoPlayNext || !showCourseTabs || !id) return;
+    const idx = sortedCourseVideos.findIndex((v) => v.id === id);
+    if (idx < 0) return;
+    const rest = sortedCourseVideos.slice(idx + 1);
+    const next =
+      rest.find((v) => v.watchProgress < 0.98) ?? rest[0];
+    if (next && next.id !== id) {
+      navigate(`/watch/${next.id}`);
+    }
+  }, [autoPlayNext, showCourseTabs, id, sortedCourseVideos, navigate]);
+
+  const handleVideoEnded = useCallback(() => {
+    markCurrentVideoFinished();
+    playNextLesson();
+  }, [playNextLesson]);
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === "?") {
+        e.preventDefault();
+        setShowShortcuts(true);
+        return;
+      }
+
+      if (showCourseTabs && e.key === "n" && courseNav.next) {
+        e.preventDefault();
+        navigate(`/watch/${courseNav.next.id}`);
+        return;
+      }
+      if (showCourseTabs && e.key === "p" && courseNav.prev) {
+        e.preventDefault();
+        navigate(`/watch/${courseNav.prev.id}`);
+        return;
+      }
+
+      const videoEl = videoRef.current;
+      if (!videoEl) return;
+
+      switch (e.key) {
+        case " ":
+        case "k":
+          e.preventDefault();
+          videoEl.paused ? videoEl.play() : videoEl.pause();
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          videoEl.currentTime = Math.min(
+            videoEl.duration,
+            videoEl.currentTime + 10,
+          );
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          videoEl.currentTime = Math.max(0, videoEl.currentTime - 10);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          videoEl.volume = Math.min(1, videoEl.volume + 0.1);
+          videoEl.muted = false;
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          videoEl.volume = Math.max(0, videoEl.volume - 0.1);
+          break;
+        case "f":
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case "m":
+          e.preventDefault();
+          videoEl.muted = !videoEl.muted;
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleFullscreen, showCourseTabs, courseNav, navigate]);
+
+  const playerInfoTabs = useMemo(() => {
+    const tabs: { id: PlayerTab; label: string; icon: typeof MessageCircle }[] =
+      [];
+    if (showCourseTabs) {
+      tabs.push(
+        { id: "details", label: t("player.tabDetails"), icon: FileText },
+        { id: "course", label: t("player.tabCourse"), icon: ListVideo },
+      );
+    }
+    if (showYouTubeTabs) {
+      if (!showCourseTabs) {
+        tabs.push({ id: "details", label: t("player.tabOverview"), icon: BookOpen });
+      }
+      tabs.push(
+        { id: "comments", label: t("player.tabComments"), icon: MessageCircle },
+        { id: "description", label: t("player.tabDescription"), icon: FileText },
+      );
+    }
+    return tabs;
+  }, [showCourseTabs, showYouTubeTabs, t]);
+
+  const showTabBar = showCourseTabs || showYouTubeTabs;
+
+  useEffect(() => {
+    if (!showTabBar) return;
+    if (!playerInfoTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab("details");
+    }
+  }, [playerInfoTabs, activeTab, showTabBar]);
+
   if (isLoading || !video) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] px-2">
@@ -1190,51 +1530,42 @@ export default function Player() {
           </div>
           <div>
             <h2 className="text-md font-bold text-white mb-1">
-              Initializing Player
+              {t("player.initializing")}
             </h2>
-            <p className="text-xs text-gray-400">Buffering media streams...</p>
+            <p className="text-xs text-gray-400">{t("player.buffering")}</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // ── View-mode helpers ──────────────────────────────────────────────────
-  const wrapperCls =
-    viewMode === "theater"
-      ? "w-full animate-fade-in"
-      : activeCourse
-        ? " mx-auto animate-fade-in"
-        : " mx-auto animate-fade-in";
-
   const playerVisible = viewMode !== "mini";
-  const showCourseTab = Boolean(
-    activeCourse && viewMode !== "theater" && courseVideos.length > 0,
-  );
-  const showYouTubeTabs = Boolean(youtubeId);
-  const showTabs = showCourseTab || showYouTubeTabs;
 
   return (
-    <div className={`${wrapperCls} animate-fade-in`}>
-      <div className="rounded-2xl bg-surface-50/90 border border-surface-200/60 p-2 sm:p-3 shadow-2xl shadow-black/20">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-          >
-            <ChevronLeft size={18} />
-            Back
-          </button>
-          {activeCourse && (
-            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-emerald-300 bg-surface-100/80 border border-surface-200/60 px-3 py-1.5 rounded-full shadow-sm">
-              <ListVideo size={14} />
-              Course Mode
-            </div>
-          )}
-        </div>
+    <div className="w-full space-y-4 animate-fade-in">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          <ChevronLeft size={18} />
+          {t("player.back")}
+        </button>
+        {activeCourse && (
+          <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-emerald-300 bg-surface-100/80 border border-surface-200/60 px-3 py-1.5 rounded-full">
+            <ListVideo size={14} />
+            {t("player.courseMode")}
+          </div>
+        )}
+      </div>
 
-        <div className="space-y-3">
-          {playerVisible && (
+      <div className="relative w-full overflow-hidden rounded-2xl border border-surface-200/60 shadow-lg shadow-black/25">
+        {playerVisible && (
+          <div className="relative">
+            <div
+              className="pointer-events-none absolute -inset-3 rounded-3xl bg-gradient-to-b from-brand/25 via-brand/5 to-transparent opacity-70 blur-2xl"
+              aria-hidden
+            />
             <div
               ref={containerRef}
               onMouseMove={resetHideTimer}
@@ -1242,12 +1573,14 @@ export default function Player() {
               onDoubleClick={youtubeId ? undefined : toggleFullscreen}
               onMouseDown={youtubeId ? undefined : handlePlayerMouseDown}
               onTouchStart={youtubeId ? undefined : handlePlayerTouchStart}
-              className={`video-player-container relative bg-slate-950 overflow-hidden group transition-all duration-300 select-none shadow-2xl shadow-black/40 ring-1 ring-surface-200/40 ${
-                fullscreen ? "w-full h-full rounded-none" : "rounded-[1.75rem]"
-              } aspect-video ${!youtubeId && showCtrl ? "cursor-pointer" : "cursor-none"}`}
+              className={`video-player-container relative w-full overflow-hidden bg-black group transition-all duration-300 select-none ${
+                fullscreen
+                  ? "h-full rounded-none aspect-auto shadow-none ring-0"
+                  : "aspect-[16/9] shadow-[0_28px_90px_-24px_rgba(0,0,0,0.9)] ring-1 ring-white/10"
+              } ${!youtubeId && showCtrl ? "cursor-pointer" : youtubeId ? "" : "cursor-none"}`}
             >
               {youtubeId ? (
-                <div className="w-full h-full absolute inset-0 rounded-[1.75rem] overflow-hidden bg-black pointer-events-auto">
+                <div className="absolute inset-0 overflow-hidden bg-black pointer-events-auto">
                   <div
                     key={youtubeId}
                     id="yt-player-element"
@@ -1286,8 +1619,16 @@ export default function Player() {
                       setMuted(videoEl.muted);
                     }
                   }}
-                  onEnded={markCurrentVideoFinished}
+                  onEnded={handleVideoEnded}
                 />
+              )}
+
+              {!youtubeId && !playing && showCtrl && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                  <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-brand/90 text-white shadow-[0_0_40px_rgba(229,9,20,0.55)] ring-4 ring-white/15 transition-transform duration-200 group-hover:scale-105">
+                    <Play size={36} className="translate-x-0.5" fill="currentColor" />
+                  </div>
+                </div>
               )}
 
               {!youtubeId && isSpeedingUp && (
@@ -1304,7 +1645,7 @@ export default function Player() {
               )}
 
               <div
-                className={`absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-transparent to-transparent transition-opacity duration-300 ${
+                className={`absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/95 via-black/35 to-transparent transition-opacity duration-300 ${
                   !youtubeId && showCtrl
                     ? "opacity-100 pointer-events-auto"
                     : "opacity-0 pointer-events-none"
@@ -1350,9 +1691,31 @@ export default function Player() {
                       if (v) v.currentTime += 10;
                     }}
                     className="hover:text-brand transition-colors text-white"
+                    title="Forward 10 seconds"
                   >
                     <SkipForward size={20} />
                   </button>
+
+                  {showCourseTabs && courseNav.prev && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/watch/${courseNav.prev!.id}`)}
+                      className="hover:text-brand transition-colors text-white"
+                      title="Previous lesson (P)"
+                    >
+                      <SkipBack size={20} />
+                    </button>
+                  )}
+                  {showCourseTabs && courseNav.next && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/watch/${courseNav.next!.id}`)}
+                      className="hover:text-brand transition-colors text-white"
+                      title="Next lesson (N)"
+                    >
+                      <ChevronRight size={22} />
+                    </button>
+                  )}
 
                   <div className="flex items-center gap-2">
                     <button
@@ -1528,148 +1891,90 @@ export default function Player() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {activeCourse &&
-            viewMode !== "theater" &&
-            courseVideos.length > 0 && (
-              <CoursePlayerSidebar
-                currentVideoId={video.id}
-                videos={courseVideos}
-                courseTitle={activeCourse.name}
-                courseProgress={courseProgress}
-                completedCount={completedLessons}
-                remainingDuration={courseRemainingDuration}
-                onSelect={(lessonId) => navigate(`/watch/${lessonId}`)}
-              />
-            )}
+        {showTabBar && (
+          <PlayerInfoTabs
+            tabs={playerInfoTabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        )}
 
-          <div className="bg-surface-100/80 backdrop-blur-md border border-surface-200/60 rounded-3xl p-6 shadow-lg shadow-black/20">
+        <div className="bg-surface-100/50">
+        {(activeTab === "details" || !showTabBar) && (
+          <div className="p-3 sm:p-4">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <h1
-                  className={`text-2xl font-bold text-white mb-3 leading-snug ${
-                    isArabic(video.title) ? "font-arabic text-right" : ""
-                  }`}
-                  dir={isArabic(video.title) ? "rtl" : undefined}
-                >
-                  {video.title}
-                </h1>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
-                  <span className="px-2.5 py-1 bg-surface-200 text-white rounded-lg text-xs font-medium">
-                    {video.category}
-                  </span>
-                  {video.subcategory && (
-                    <span className="px-2.5 py-1 bg-surface-200 text-white rounded-lg text-xs font-medium">
-                      {video.subcategory}
-                    </span>
-                  )}
-                  {video.duration > 0 && (
-                    <span className="text-gray-400 text-xs">
-                      {formatDuration(video.duration)}
-                    </span>
-                  )}
-                  {video.fileSize > 0 && (
-                    <span className="text-gray-400 text-xs">
-                      {formatFileSize(video.fileSize)}
-                    </span>
-                  )}
-                  {video.resolution && (
-                    <span className="text-gray-400 text-xs">
-                      {video.resolution}
-                    </span>
-                  )}
-                </div>
-                {video.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {video.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-2 py-0.5 bg-surface-200 text-gray-300 text-xs rounded-full"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2 shrink-0">
-                {id !== "external" && (
-                  <button
-                    onClick={() => setActiveTab("videos")}
-                    className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl text-sm font-semibold transition-colors ${
-                      activeTab === "videos"
-                        ? "bg-surface-200 text-white"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    <ListVideo size={16} />
-                    Remaining Videos
-                  </button>
-                )}
-
-                {id !== "external" && activeCourse && (
-                  <button
-                    onClick={toggleFinishedState}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
-                      currentFinished
-                        ? "border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
-                        : "border-surface-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-300"
-                    }`}
-                  >
-                    {currentFinished ? (
-                      <CheckCircle2 size={18} />
-                    ) : (
-                      <Circle size={18} />
-                    )}
-                    {currentFinished ? "Mark Unfinished" : "Mark Finished"}
-                  </button>
-                )}
-              </div>
-
-              {activeTab === "videos" && showCourseTab && activeCourse ? (
-                <CoursePlayerSidebar
-                  currentVideoId={video.id}
-                  videos={courseVideos}
-                  courseTitle={activeCourse.name}
-                  courseProgress={courseProgress}
-                  completedCount={completedLessons}
-                  remainingDuration={courseRemainingDuration}
-                  onSelect={(lessonId) => navigate(`/watch/${lessonId}`)}
-                  onToggleWatched={toggleLessonWatched}
-                  embedded
-                />
-              ) : activeTab === "comments" && showYouTubeTabs ? (
-                <YouTubeCommentsPanel
-                  metadata={youtubeMetadata}
-                  isLoading={youtubeLoading}
-                  error={youtubeError}
-                />
-              ) : activeTab === "description" && showYouTubeTabs ? (
-                <YouTubeDescriptionPanel
-                  metadata={youtubeMetadata}
-                  isLoading={youtubeLoading}
-                  error={youtubeError}
-                />
-              ) : (
-                <VideoDetailsPanel
-                  video={video}
-                  id={id}
-                  isFav={isFav}
-                  currentFinished={currentFinished}
-                  activeCourse={activeCourse}
-                  youtubeId={youtubeId}
-                  youtubeMetadata={youtubeMetadata}
-                  onToggleFavorite={toggleFav}
-                  onMarkRead={markCurrentVideoFinished}
-                />
-              )}
+              <VideoInfoHeader
+                video={video}
+                youtubeId={youtubeId}
+                youtubeMetadata={youtubeMetadata}
+                canEditTitle={!youtubeId && id !== "external"}
+                onTitleSaved={saveVideoTitle}
+              />
+              <VideoInfoActions
+                id={id}
+                isFav={isFav}
+                currentFinished={currentFinished}
+                activeCourse={activeCourse}
+                onToggleFavorite={toggleFav}
+                onToggleFinished={toggleFinishedState}
+                onCopyLink={copyWatchLink}
+                linkCopied={linkCopied}
+                showAutoPlay={showCourseTabs}
+                autoPlayNext={autoPlayNext}
+                onToggleAutoPlayNext={() => setAutoPlayNext((v) => !v)}
+                onShowShortcuts={() => setShowShortcuts(true)}
+              />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* ── Floating Miniplayer ────────────────────────────────────── */}
+        {showCourseTabs && activeTab === "course" && activeCourse && (
+          <div className={showTabBar ? "" : "border-t border-surface-200/40"}>
+            <CoursePlayerSidebar
+              currentVideoId={video.id}
+              videos={otherCourseVideos}
+              courseTitle={activeCourse.name}
+              courseProgress={courseProgress}
+              completedCount={completedLessons}
+              remainingDuration={courseRemainingDuration}
+              onSelect={(lessonId) => navigate(`/watch/${lessonId}`)}
+              onToggleWatched={toggleLessonWatched}
+              embedded
+            />
+          </div>
+        )}
+
+        {showYouTubeTabs && activeTab === "comments" && (
+          <div className="border-t border-surface-200/40">
+            <YouTubeCommentsPanel
+              metadata={youtubeMetadata}
+              isLoading={youtubeLoading}
+              error={youtubeError}
+            />
+          </div>
+        )}
+
+        {showYouTubeTabs && activeTab === "description" && (
+          <div className="border-t border-surface-200/40">
+            <YouTubeDescriptionPanel
+              metadata={youtubeMetadata}
+              isLoading={youtubeLoading}
+              error={youtubeError}
+            />
+          </div>
+        )}
+        </div>
+      </div>
+
+      <KeyboardShortcutsHelp
+        open={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
+
+      {/* ── Floating Miniplayer ────────────────────────────────────── */}
         {viewMode === "mini" && (
           <div
             className="fixed bottom-6 right-6 z-50 rounded-2xl overflow-hidden shadow-2xl shadow-black/60 border border-white/10 animate-fade-in"
@@ -1722,7 +2027,7 @@ export default function Player() {
                       setMuted(videoEl.muted);
                     }
                   }}
-                  onEnded={markCurrentVideoFinished}
+                  onEnded={handleVideoEnded}
                 />
               )}
 
@@ -1770,7 +2075,6 @@ export default function Player() {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

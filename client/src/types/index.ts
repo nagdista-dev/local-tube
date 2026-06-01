@@ -29,6 +29,14 @@ export interface Category {
   remainingDuration?: number;
 }
 
+export interface CourseStudyPlan {
+  category: string;
+  dailyMinutes: number;
+  studyDays: number[];
+  taskChecks: Record<string, Record<string, boolean>>;
+  updatedAt?: string;
+}
+
 export interface ScanStatus {
   status: 'idle' | 'scanning' | 'complete' | 'error';
   total: number;

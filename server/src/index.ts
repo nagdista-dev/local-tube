@@ -9,6 +9,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 import videosRouter from './routes/videos';
 import streamRouter from './routes/stream';
 import scanRouter   from './routes/scan';
+import settingsRouter from './routes/settings';
 import { scanLibrary } from './services/scanner';
 import { getLibraryLocation } from './services/libraryConfig';
 
@@ -45,6 +46,7 @@ app.use('/thumbnails', express.static(THUMBNAILS, {
 app.use('/api/videos', videosRouter);
 app.use('/api/stream', streamRouter);
 app.use('/api/scan',   scanRouter);
+app.use('/api/settings', settingsRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { formatDuration } from '../utils/format';
+import CourseStudyPlanner from './CourseStudyPlanner';
+import { useTranslation } from '../i18n';
 
 interface VideoGridProps {
   category?: string;
@@ -33,12 +35,12 @@ function findCategoryByPath(categories: Category[], folderPath: string): Categor
 }
 
 // Sort field + direction pairs shown in toolbar
-const SORT_FIELDS: { field: string; label: string }[] = [
-  { field: 'date',     label: 'Date'     },
-  { field: 'name',     label: 'Name'     },
-  { field: 'duration', label: 'Duration' },
-  { field: 'size',     label: 'Size'     },
-  { field: 'progress', label: 'Progress' },
+const SORT_FIELDS: { field: string; labelKey: string }[] = [
+  { field: 'date',     labelKey: 'videoGrid.sortDate'     },
+  { field: 'name',     labelKey: 'videoGrid.sortName'     },
+  { field: 'duration', labelKey: 'videoGrid.sortDuration' },
+  { field: 'size',     labelKey: 'videoGrid.sortSize'     },
+  { field: 'progress', labelKey: 'videoGrid.sortProgress' },
 ];
 
 // Map field + direction to a SortOption value
@@ -71,6 +73,7 @@ function fromSortOption(sort: string): { field: string; dir: 'asc' | 'desc' } {
 }
 
 export default function VideoGrid({ category, sort, search }: VideoGridProps) {
+  const { t } = useTranslation();
   const viewLayout   = useStore(s => s.viewLayout);
   const setViewLayout = useStore(s => s.setViewLayout);
   const setSort      = useStore(s => s.setSort);
@@ -137,12 +140,14 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
   // Parse current sort field + direction
   const { field: sortField, dir: sortDir } = fromSortOption(sort ?? 'date');
 
+  const defaultSortDir = (field: string): 'asc' | 'desc' =>
+    field === 'name' ? 'asc' : 'desc';
+
   const handleSortField = (field: string) => {
-    // Clicking the same field toggles direction; new field defaults to its natural desc order
     if (field === sortField) {
       setSort(toSortOption(field, sortDir === 'desc' ? 'asc' : 'desc'));
     } else {
-      setSort(toSortOption(field, 'desc'));
+      setSort(toSortOption(field, defaultSortDir(field)));
     }
   };
 
@@ -154,6 +159,10 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
     queryClient.invalidateQueries({ queryKey: ['videos'] });
     queryClient.invalidateQueries({ queryKey: ['categories'] });
     queryClient.invalidateQueries({ queryKey: ['history'] });
+    if (category) {
+      queryClient.invalidateQueries({ queryKey: ['course-videos', category] });
+      queryClient.invalidateQueries({ queryKey: ['course-study-plan', category] });
+    }
   };
 
   const toggleCourse = async () => {
@@ -167,8 +176,8 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-gray-500 gap-3">
-        <p className="text-lg">Failed to load videos</p>
-        <p className="text-sm">Make sure the server is running</p>
+        <p className="text-lg">{t("videoGrid.loadError")}</p>
+        <p className="text-sm">{t("videoGrid.serverHint")}</p>
       </div>
     );
   }
@@ -178,11 +187,11 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
       <div className="flex flex-col items-center justify-center py-24 text-gray-500 gap-4">
         <Inbox size={48} className="text-gray-700" />
         <div className="text-center">
-          <p className="text-lg text-gray-400">No videos found</p>
+          <p className="text-lg text-gray-400">{t("videoGrid.noVideos")}</p>
           <p className="text-sm mt-1">
             {search
-              ? `No results for "${search}"`
-              : 'Scan your library to get started'}
+              ? t("videoGrid.noResults", { search })
+              : t("videoGrid.scanHint")}
           </p>
         </div>
       </div>
@@ -197,9 +206,14 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
         {/* Left: video count */}
         {total > 0 ? (
           <p className="text-xs text-gray-500 shrink-0">
-            {total.toLocaleString()} video{total !== 1 ? 's' : ''}
-            {activeCategory ? ` in ${activeCategory.name}` : category ? ` in ${category}` : ''}
-            {search ? ` matching "${search}"` : ''}
+            {search
+              ? t("videoGrid.countMatching", { count: total.toLocaleString(), search })
+              : activeCategory || category
+                ? t("videoGrid.countInFolder", {
+                    count: total.toLocaleString(),
+                    name: activeCategory?.name ?? category ?? "",
+                  })
+                : `${total.toLocaleString()}`}
           </p>
         ) : (
           <div />
@@ -219,7 +233,7 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
               }`}
             >
               {activeCategory?.isCourse ? <CheckCircle2 size={13} /> : <BookOpen size={13} />}
-              {activeCategory?.isCourse ? 'Course' : 'Mark as Course'}
+              {activeCategory?.isCourse ? t("videoGrid.course") : t("videoGrid.markAsCourse")}
             </button>
           )}
 
@@ -229,7 +243,7 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
               <ArrowUpDown size={12} className="text-gray-500 mr-0.5 shrink-0" />
 
               {/* Sort field buttons */}
-              {SORT_FIELDS.map(({ field, label }) => (
+              {SORT_FIELDS.map(({ field, labelKey }) => (
                 <button
                   key={field}
                   onClick={() => handleSortField(field)}
@@ -238,9 +252,9 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
                       ? 'bg-brand text-white shadow-sm'
                       : 'text-gray-500 hover:text-gray-300 hover:bg-surface-300/50'
                   }`}
-                  title={`Sort by ${label}`}
+                  title={t("videoGrid.sortBy", { label: t(labelKey) })}
                 >
-                  {label}
+                  {t(labelKey)}
                 </button>
               ))}
 
@@ -248,7 +262,7 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
               <button
                 onClick={toggleSortDir}
                 className="p-1 rounded hover:bg-surface-300/50 text-gray-400 hover:text-white transition-all"
-                title={sortDir === 'desc' ? 'Descending — click for Ascending' : 'Ascending — click for Descending'}
+                title={sortDir === 'desc' ? t("videoGrid.sortDesc") : t("videoGrid.sortAsc")}
               >
                 {sortDir === 'desc'
                   ? <ArrowDown size={13} className="text-brand" />
@@ -268,7 +282,7 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
                   ? 'bg-surface-300 text-white shadow-sm'
                   : 'text-gray-500 hover:text-gray-300'
               }`}
-              title="Grid view"
+              title={t("videoGrid.gridView")}
             >
               <Grid size={14} />
             </button>
@@ -279,7 +293,7 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
                   ? 'bg-surface-300 text-white shadow-sm'
                   : 'text-gray-500 hover:text-gray-300'
               }`}
-              title="List view"
+              title={t("videoGrid.listView")}
             >
               <List size={14} />
             </button>
@@ -287,37 +301,11 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
         </div>
       </div>
 
-      {/* ── Course progress banner ───────────────────────────────────────── */}
-      {activeCategory?.isCourse && (
-        <div className="mb-3 rounded-xl border border-surface-200/70 bg-surface-100/50 p-3 shadow-lg">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-emerald-300 text-xs font-semibold uppercase tracking-widest mb-1.5">
-                <CheckCircle2 size={15} />
-                Course
-              </div>
-              <h2 className="text-lg font-bold text-white">{activeCategory.name}</h2>
-              <p className="text-sm text-gray-400 mt-1">
-                {activeCategory.completedCount || 0} of {activeCategory.count} videos finished
-                {activeCategory.remainingDuration
-                  ? ` · ${formatDuration(activeCategory.remainingDuration)} left`
-                  : ' · Complete'}
-              </p>
-            </div>
-            <div className="min-w-[220px]">
-              <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-                <span>{Math.round(courseProgress * 100)}% complete</span>
-                <span>{formatDuration(activeCategory.watchedDuration || 0)} watched</span>
-              </div>
-              <div className="h-2 rounded-full bg-surface-300 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-emerald-400 transition-all"
-                  style={{ width: `${courseProgress * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+      {activeCategory?.isCourse && category && (
+        <CourseStudyPlanner
+          categoryPath={category}
+          courseTitle={activeCategory.name}
+        />
       )}
 
       {/* ── Video list ──────────────────────────────────────────────────── */}

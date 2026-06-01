@@ -1,4 +1,4 @@
-import { Video, Category, VideoListResponse, ScanStatus, DownloadJob, LibraryLocation, DirectoryListing, YouTubeMetadata } from '../types';
+import { Video, Category, VideoListResponse, ScanStatus, DownloadJob, LibraryLocation, DirectoryListing, YouTubeMetadata, CourseStudyPlan } from '../types';
 
 const BASE = '/api';
 
@@ -51,6 +51,17 @@ export const api = {
       });
     },
 
+    getStudyPlan(categoryPath: string): Promise<CourseStudyPlan> {
+      return request(`${BASE}/videos/categories/${encodeURIComponent(categoryPath)}/study-plan`);
+    },
+
+    saveStudyPlan(categoryPath: string, plan: Omit<CourseStudyPlan, 'category' | 'updatedAt'>): Promise<CourseStudyPlan> {
+      return request(`${BASE}/videos/categories/${encodeURIComponent(categoryPath)}/study-plan`, {
+        method: 'PUT',
+        body: JSON.stringify(plan),
+      });
+    },
+
     history(limit = 12): Promise<Video[]> {
       return request(`${BASE}/videos/history?limit=${limit}`);
     },
@@ -88,6 +99,13 @@ export const api = {
       return request(`${BASE}/videos/${id}/finished`, {
         method: 'POST',
         body: JSON.stringify({ finished }),
+      });
+    },
+
+    updateTitle(id: string, title: string): Promise<Video> {
+      return request(`${BASE}/videos/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
       });
     },
 
@@ -134,6 +152,54 @@ export const api = {
     },
     status(jobId: string): Promise<DownloadJob> {
       return request(`${BASE}/videos/download/jobs/${jobId}`);
+    },
+  },
+
+  settings: {
+    getPomodoro(): Promise<{
+      workTime: number;
+      shortBreakTime: number;
+      longBreakTime: number;
+      cyclesBeforeLongBreak: number;
+    }> {
+      return request(`${BASE}/settings/pomodoro`);
+    },
+    savePomodoro(settings: {
+      workTime: number;
+      shortBreakTime: number;
+      longBreakTime: number;
+      cyclesBeforeLongBreak: number;
+    }): Promise<{
+      workTime: number;
+      shortBreakTime: number;
+      longBreakTime: number;
+      cyclesBeforeLongBreak: number;
+    }> {
+      return request(`${BASE}/settings/pomodoro`, {
+        method: 'POST',
+        body: JSON.stringify(settings),
+      });
+    },
+    getPomodoroTasks(): Promise<{ id: string; name: string; completedCycles: number; isCompleted: number; createdAt: string }[]> {
+      return request(`${BASE}/settings/pomodoro/tasks`);
+    },
+    addPomodoroTask(task: { name: string }): Promise<any> {
+      return request(`${BASE}/settings/pomodoro/tasks`, {
+        method: 'POST',
+        body: JSON.stringify(task),
+      });
+    },
+    updatePomodoroTask(id: string, updates: { name: string; completedCycles: number; isCompleted: number }): Promise<any> {
+      return request(`${BASE}/settings/pomodoro/tasks/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+    },
+    deletePomodoroTask(id: string): Promise<any> {
+      return request(`${BASE}/settings/pomodoro/tasks/${id}`, { method: 'DELETE' });
+    },
+    clearPomodoroTasks(): Promise<any> {
+      return request(`${BASE}/settings/pomodoro/tasks/clear`, { method: 'POST' });
     },
   },
 };

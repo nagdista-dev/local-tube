@@ -3,8 +3,10 @@ import { Heart } from 'lucide-react';
 import { api } from '../utils/api';
 import VideoCard from '../components/VideoCard';
 import { SkeletonGrid } from '../components/SkeletonCard';
+import { useTranslation } from '../i18n';
 
 export default function FavoritesPage() {
+  const { t } = useTranslation();
   const { data: videos = [], isLoading, refetch } = useQuery({
     queryKey: ['favorites'],
     queryFn:  api.videos.favorites,
@@ -14,8 +16,8 @@ export default function FavoritesPage() {
     <div className="animate-fade-in">
       <div className="flex items-center gap-3 mb-6">
         <Heart size={24} className="text-brand fill-brand" />
-        <h1 className="text-2xl font-bold">Favorites</h1>
-        <span className="text-sm text-gray-500 ml-1">({videos.length})</span>
+        <h1 className="text-2xl font-bold">{t("favorites.title")}</h1>
+        <span className="text-sm text-gray-500 ms-1">({videos.length})</span>
       </div>
 
       {isLoading && <SkeletonGrid count={12} />}
@@ -23,7 +25,7 @@ export default function FavoritesPage() {
       {!isLoading && videos.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-gray-500 gap-3">
           <Heart size={48} className="text-gray-700" />
-          <p>No favorites yet. Click the ♥ on any video to save it here.</p>
+          <p>{t("favorites.empty")}</p>
         </div>
       )}
 

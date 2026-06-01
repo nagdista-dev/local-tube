@@ -4,6 +4,7 @@ import { Heart, Play, Clock, HardDrive, CheckCircle2, RotateCcw } from "lucide-r
 import { Video } from "../types";
 import { formatDuration, formatFileSize, truncate, isArabic } from "../utils/format";
 import { api } from "../utils/api";
+import { useTranslation } from "../i18n";
 
 interface VideoCardProps {
   video: Video;
@@ -20,6 +21,7 @@ export default function VideoCard({
   showCourseControls = false,
   layout = "grid",
 }: VideoCardProps) {
+  const { t } = useTranslation();
   const [isFav, setIsFav] = useState(video.isFavorite);
   const [localProgress, setLocalProgress] = useState(video.watchProgress);
   const [imgError, setImgError] = useState(false);
@@ -131,7 +133,7 @@ export default function VideoCard({
             onClick={toggleFav}
             className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60
                        opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-            aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+            aria-label={isFav ? t("videoCard.removeFavorite") : t("videoCard.addFavorite")}
           >
             <Heart
               size={12}
@@ -160,7 +162,7 @@ export default function VideoCard({
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <span className="flex items-center gap-1.5">
               <Clock size={12} />
-              {isFinished ? "Finished" : `${formatDuration(remainingSeconds)} left`}
+              {isFinished ? t("videoCard.finished") : t("videoCard.left", { duration: formatDuration(remainingSeconds) })}
             </span>
             <span className="flex items-center gap-1.5">
               <HardDrive size={12} />
@@ -176,7 +178,7 @@ export default function VideoCard({
                 }`}
               >
                 {isFinished ? <RotateCcw size={12} /> : <CheckCircle2 size={12} />}
-                {isFinished ? "Mark Unfinished" : "Mark Finished"}
+                {isFinished ? t("videoCard.markUnfinished") : t("videoCard.markFinished")}
               </button>
             )}
           </div>
@@ -250,7 +252,7 @@ export default function VideoCard({
           onClick={toggleFav}
           className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 dark:bg-black/60
                      opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-          aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+          aria-label={isFav ? t("videoCard.removeFavorite") : t("videoCard.addFavorite")}
         >
           <Heart
             size={14}
@@ -277,7 +279,7 @@ export default function VideoCard({
         <div className="flex items-center gap-3 text-xs text-gray-600">
           <span className="flex items-center gap-1">
             <Clock size={10} />
-            {isFinished ? "Finished" : formatDuration(video.duration)}
+            {isFinished ? t("videoCard.finished") : formatDuration(video.duration)}
           </span>
           <span className="flex items-center gap-1">
             <HardDrive size={10} />

@@ -17,13 +17,55 @@ import {
   FolderOpen,
   Trash2,
   AlertCircle,
+  MoreVertical,
+  CornerLeftUp,
+  HardDrive,
+  ChevronRight,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useTheme } from "../hooks/useTheme";
 import { api } from "../utils/api";
 import type { DirectoryListing } from "../types";
+import { useTranslation } from "../i18n";
+import LanguageSwitcher from "./LanguageSwitcher";
+
+const POPOVER =
+  "absolute top-[calc(100%+8px)] end-0 z-50 min-w-[280px] max-w-[min(100vw-1.5rem,360px)] rounded-xl border border-white/[0.08] bg-surface-100/95 backdrop-blur-xl shadow-xl shadow-black/40 animate-fade-in text-start";
+
+function NavIconButton({
+  children,
+  onClick,
+  title,
+  active,
+  className = "",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  active?: boolean;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
+        active
+          ? "bg-white/10 text-white"
+          : "text-gray-400 hover:text-white hover:bg-white/5"
+      } ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+function NavDivider() {
+  return <div className="hidden sm:block w-px h-5 bg-white/[0.08] mx-0.5 shrink-0" aria-hidden />;
+}
 
 export default function Navbar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -42,6 +84,8 @@ export default function Navbar() {
   const [clearing, setClearing] = useState(false);
   const [clearError, setClearError] = useState<string | null>(null);
   const clearCacheRef = useRef<HTMLDivElement>(null);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
 
   // ── Play External URL States inside Navbar popover ────────────────────────
   const [showUrlDropdown, setShowUrlDropdown] = useState(false);
@@ -98,19 +142,39 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        toolsMenuRef.current &&
+        !toolsMenuRef.current.contains(e.target as Node)
+      ) {
+        setShowToolsMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const closeAllPopovers = () => {
+    setShowUrlDropdown(false);
+    setShowLocationDropdown(false);
+    setShowClearConfirm(false);
+    setShowToolsMenu(false);
+  };
+
+  useEffect(() => {
     api.scan.location()
       .then(({ videosDir }) => setVideosDir(videosDir))
       .catch(() => {
-        setLocationError("Unable to load the saved video folder.");
+        setLocationError(t("nav.loadFolderError"));
       });
-  }, []);
+  }, [t]);
 
   const handlePlayStream = (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
 
     if (!/^https?:\/\//i.test(url.trim())) {
-      setError("Please enter a valid HTTP/HTTPS video URL.");
+      setError(t("nav.invalidUrl"));
       return;
     }
 
@@ -180,9 +244,9 @@ export default function Navbar() {
       window.location.reload();
     } catch (err: unknown) {
       setScanning(false);
-      setLocationError(err instanceof Error ? err.message : "Unable to scan video folder.");
+      setLocationError(err instanceof Error ? err.message : t("nav.scanFolderError"));
     }
-  }, [waitForScan]);
+  }, [waitForScan, t]);
 
   const loadDirectories = useCallback(async (path?: string) => {
     setDirectoryLoading(true);
@@ -191,17 +255,17 @@ export default function Navbar() {
     try {
       setDirectoryListing(await api.scan.directories(path));
     } catch (err: unknown) {
-      setLocationError(err instanceof Error ? err.message : "Unable to open folder.");
+      setLocationError(err instanceof Error ? err.message : t("nav.openFolderError"));
     } finally {
       setDirectoryLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const handleSaveLocation = useCallback(async () => {
     const selectedPath = directoryListing?.currentPath || videosDir;
 
     if (!selectedPath.trim()) {
-      setLocationError("Select a folder.");
+      setLocationError(t("nav.selectFolder"));
       return;
     }
 
@@ -218,9 +282,9 @@ export default function Navbar() {
     } catch (err: unknown) {
       setScanning(false);
       setLocationSaving(false);
-      setLocationError(err instanceof Error ? err.message : "Unable to save video folder.");
+      setLocationError(err instanceof Error ? err.message : t("nav.saveFolderError"));
     }
-  }, [directoryListing?.currentPath, videosDir, waitForScan]);
+  }, [directoryListing?.currentPath, videosDir, waitForScan, t]);
 
   const clearSearch = () => {
     setLocalSearch("");
@@ -242,417 +306,455 @@ export default function Navbar() {
       navigate("/");
       window.location.reload();
     } catch (err: unknown) {
-      setClearError(err instanceof Error ? err.message : "Failed to clear cache.");
+      setClearError(err instanceof Error ? err.message : t("nav.clearCacheError"));
     } finally {
       setClearing(false);
     }
-  }, [queryClient, navigate]);
+  }, [queryClient, navigate, t]);
+
+
+  const openFolderPicker = () => {
+    closeAllPopovers();
+    setShowLocationDropdown(true);
+    loadDirectories(videosDir);
+  };
 
   return (
-    <header className="sticky top-0 z-40 min-h-16 flex items-center gap-4 px-4 sm:px-5 bg-surface/90 dark:bg-surface/90 backdrop-blur-xl border-b border-surface-200/70 dark:border-surface-200/70 shadow-sm shadow-black/10 transition-colors duration-200">
-      {/* Left Block: Menu and Logo */}
-      <div className="flex items-center gap-2 shrink-0 min-w-fit">
-        <button
-          onClick={toggleSidebar}
-          className="w-10 h-10 rounded-xl hover:bg-surface-200/80 dark:hover:bg-surface-200/80 transition-colors text-gray-300 hover:text-white dark:text-gray-300 dark:hover:text-white flex items-center justify-center"
-          aria-label="Toggle sidebar"
-        >
-          <Menu size={20} />
-        </button>
-
-        <Link
-          to="/"
-          onClick={() => {
-            setLocalSearch("");
-            setSearch("");
-            useStore.getState().setCategory("");
-          }}
-          className="flex items-center gap-2.5 shrink-0 rounded-xl px-1.5 py-1 hover:bg-surface-100/70 transition-colors"
-        >
-          <div className="w-8 h-8 bg-brand rounded-xl flex items-center justify-center shadow-sm shadow-brand/20">
-            <Film size={18} className="text-white" />
-          </div>
-          <span className="font-bold text-lg tracking-tight text-white dark:text-white hidden md:block">
-            Local<span className="text-brand">Tube</span>
-          </span>
-        </Link>
-      </div>
-
-      {/* Center Block: Centered Search Bar & URL Play Popover */}
-      <div
-        className="flex-1 flex justify-center min-w-[180px] max-w-2xl mx-auto relative"
-        ref={dropdownRef}
-      >
-        <div className="relative w-full max-w-xl flex items-center gap-2 rounded-2xl bg-surface-50/70 border border-surface-200/70 px-2 py-1.5 shadow-inner shadow-black/10">
-          <div className="relative flex-1">
-            <Search
-              size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 pointer-events-none"
-            />
-            <input
-              ref={inputRef}
-              type="text"
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  clearSearch();
-                } else if (
-                  e.key === "Enter" &&
-                  /^https?:\/\//i.test(localSearch.trim())
-                ) {
-                  const targetUrl = localSearch.trim();
-                  setLocalSearch("");
-                  setSearch("");
-                  navigate(
-                    `/watch/external?url=${encodeURIComponent(targetUrl)}`,
-                  );
-                }
-              }}
-              placeholder="Search videos, categories…"
-              className="w-full h-9 pl-10 pr-8 rounded-xl bg-transparent border border-transparent
-                         text-sm placeholder:text-gray-500 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1
-                         focus:ring-brand/70 focus:border-brand/60 transition-all text-white dark:text-white"
-            />
-            {localSearch && (
-              <button
-                onClick={clearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Toggle URL Play Popover Button */}
-          <button
-            type="button"
-            onClick={() => setShowUrlDropdown(!showUrlDropdown)}
-            className={`w-9 h-9 rounded-xl border transition-all shrink-0 hover:bg-brand/10 hover:text-brand hover:border-brand/40 flex items-center justify-center
-                        ${
-                          showUrlDropdown
-                            ? "bg-brand/10 text-brand border-brand/50 shadow-md shadow-brand/10"
-                            : "bg-surface-100/80 dark:bg-surface-100/80 border-surface-200 dark:border-surface-200 text-gray-400 dark:text-gray-400"
-                        }`}
-            title="Play Stream from URL"
-          >
-            <Link2 size={16} />
-          </button>
-        </div>
-
-        {/* Glow URL paste overlay suggestion */}
-        {localSearch.trim() && /^https?:\/\//i.test(localSearch.trim()) && (
-          <div className="absolute top-full left-4 right-4 mt-2 bg-surface-100/95 dark:bg-surface-100/95 backdrop-blur-xl border border-brand/30 dark:border-brand/30 rounded-xl p-3 shadow-2xl z-50 animate-fade-in max-w-md mx-auto">
-            <button
+    <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-surface/80 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/70 w-full">
+      <div className="w-full px-3 sm:px-4">
+        <div className="flex h-14 items-center justify-between gap-2 sm:gap-3">
+          {/* Brand */}
+          <div className="flex items-center gap-1 shrink-0">
+            <NavIconButton onClick={toggleSidebar} title={t("nav.toggleSidebar")}>
+              <Menu size={18} />
+            </NavIconButton>
+            <Link
+              to="/"
               onClick={() => {
-                const u = localSearch.trim();
                 setLocalSearch("");
                 setSearch("");
-                navigate(`/watch/external?url=${encodeURIComponent(u)}`);
+                useStore.getState().setCategory("");
               }}
-              className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-brand/10 dark:hover:bg-brand/10 transition-colors text-white dark:text-white text-xs font-semibold"
+              className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 transition-colors"
             >
-              <div className="p-1.5 bg-brand text-white rounded-md shrink-0">
-                <Play size={12} className="fill-current" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand shadow-lg shadow-brand/25">
+                <Film size={17} className="text-white" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-gray-300 dark:text-gray-300">
-                  Play URL instantly inside player
-                </p>
-                <p className="truncate text-[10px] text-brand/70 dark:text-brand/70 font-mono mt-0.5">
-                  {localSearch.trim()}
-                </p>
-              </div>
-            </button>
+              <span className="hidden sm:block font-bold text-[15px] tracking-tight text-white">
+                {t("nav.brandLocal")}
+                <span className="text-brand">{t("nav.brandTube")}</span>
+              </span>
+            </Link>
           </div>
-        )}
 
-        {/* Inline URL Popover Dropdown */}
-        {showUrlDropdown && (
-          <div className="absolute top-full left-4 right-4 mt-2 bg-surface-100/95 dark:bg-surface-100/95 backdrop-blur-xl border border-surface-200/80 dark:border-surface-200/80 rounded-2xl p-5 shadow-2xl z-50 animate-fade-in max-w-sm mx-auto text-left">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-1 bg-brand/10 text-brand rounded-md">
-                <Link2 size={14} />
-              </div>
-              <h3 className="text-xs font-bold text-white dark:text-white uppercase tracking-wider">
-                Play Stream from URL
-              </h3>
-            </div>
-
-            <p className="text-[11px] text-gray-400 dark:text-gray-400 mb-3 leading-relaxed">
-              Paste YouTube or stream links to play immediately inside the
-              application.
-            </p>
-
-            {error && (
-              <div className="mb-3 p-2 bg-brand/10 border border-brand/20 text-brand text-[10px] rounded-lg flex items-start gap-1">
-                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                <p className="flex-1">{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={handlePlayStream} className="flex flex-col gap-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="Paste URL..."
-                  className="w-full h-8 pl-3 pr-14 rounded-lg bg-surface-200 dark:bg-surface-200 border border-surface-300 dark:border-surface-300
-                             text-xs placeholder:text-gray-500 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1
-                             focus:ring-brand focus:border-brand transition-all text-white dark:text-white"
-                />
-                <button
-                  type="button"
-                  onClick={handlePaste}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded
-                             text-[10px] bg-surface-300 dark:bg-surface-300 hover:bg-surface-300/80 dark:hover:bg-surface-300/80 text-gray-300 dark:text-gray-300 transition-all border dark:border-white/5 border-white/5"
-                >
-                  Paste
-                </button>
-              </div>
-              <button
-                type="submit"
-                disabled={!url.trim()}
-                className="w-full h-8 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold
-                           transition-all flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Play size={10} className="fill-current" />
-                Play Stream
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* Right Block: Actions */}
-      <nav className="flex items-center gap-2 shrink-0">
-        <div className="hidden sm:flex items-center gap-1 rounded-2xl bg-surface-50/70 border border-surface-200/70 p-1">
-          <button
-            onClick={toggleTheme}
-            className="w-9 h-9 rounded-xl hover:bg-surface-200/80 dark:hover:bg-surface-200/80 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white flex items-center justify-center"
-            title={
-              theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
-            }
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <Link
-            to="/history"
-            className="w-9 h-9 rounded-xl hover:bg-surface-200/80 dark:hover:bg-surface-200/80 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white flex items-center justify-center"
-            title="Watch History"
-          >
-            <History size={18} />
-          </Link>
-          <Link
-            to="/favorites"
-            className="w-9 h-9 rounded-xl hover:bg-surface-200/80 dark:hover:bg-surface-200/80 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white flex items-center justify-center"
-            title="Favorites"
-          >
-            <Heart size={18} />
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-1.5 rounded-2xl bg-surface-50/70 border border-surface-200/70 p-1">
-        <div className="relative" ref={locationRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowLocationDropdown((open) => {
-                if (!open) {
-                  loadDirectories(videosDir);
-                }
-                return !open;
-              });
-            }}
-            className={`h-9 flex items-center gap-2 px-3 rounded-xl text-sm font-medium border transition-all
-                       ${
-                         showLocationDropdown
-                           ? "bg-brand/10 text-brand border-brand/50"
-                           : "bg-transparent border-transparent text-gray-300 hover:text-white hover:bg-surface-200/80 hover:border-surface-300"
-                       }`}
-            title={videosDir ? `Video Folder: ${videosDir}` : "Set Video Folder"}
-          >
-            <FolderOpen size={15} />
-            <span className="hidden lg:block">Folder</span>
-          </button>
-
-          {showLocationDropdown && (
-            <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-surface-100/95 dark:bg-surface-100/95 backdrop-blur-xl border border-surface-200/80 dark:border-surface-200/80 rounded-2xl p-5 shadow-2xl z-50 animate-fade-in text-left">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-1 bg-brand/10 text-brand rounded-md">
-                  <FolderOpen size={14} />
-                </div>
-                <h3 className="text-xs font-bold text-white dark:text-white uppercase tracking-wider">
-                  Video Folder
-                </h3>
-              </div>
-
-              <p className="text-[11px] text-gray-400 dark:text-gray-400 mb-3 leading-relaxed">
-                Click through folders on this computer, then use the current
-                folder as your video library.
-              </p>
-
-              {locationError && (
-                <div className="mb-3 p-2 bg-brand/10 border border-brand/20 text-brand text-[10px] rounded-lg flex items-start gap-1">
-                  <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                  <p className="flex-1">{locationError}</p>
-                </div>
-              )}
-
-              <div className="mb-3 rounded-lg bg-surface-200 dark:bg-surface-200 border border-surface-300 dark:border-surface-300 p-2">
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
-                  Current Folder
-                </p>
-                <p className="text-[11px] text-gray-200 font-mono break-all">
-                  {directoryListing?.currentPath || videosDir || "Loading..."}
-                </p>
-              </div>
-
-              <div className="max-h-56 overflow-y-auto rounded-lg border border-surface-300 dark:border-surface-300 bg-surface-200/70 dark:bg-surface-200/70 mb-3">
-                {directoryListing?.parentPath && (
+          {/* Search */}
+          <div className="flex-1 min-w-0 max-w-2xl" ref={dropdownRef}>
+            <div className="relative group">
+              <Search
+                size={16}
+                className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-gray-400"
+              />
+              <input
+                ref={inputRef}
+                type="text"
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") clearSearch();
+                  else if (
+                    e.key === "Enter" &&
+                    /^https?:\/\//i.test(localSearch.trim())
+                  ) {
+                    const targetUrl = localSearch.trim();
+                    setLocalSearch("");
+                    setSearch("");
+                    navigate(`/watch/external?url=${encodeURIComponent(targetUrl)}`);
+                  }
+                }}
+                placeholder={t("nav.searchPlaceholder")}
+                className="w-full h-10 ps-9 pe-20 rounded-xl bg-white/[0.04] text-sm text-white placeholder:text-gray-500 ring-1 ring-white/[0.06] transition-shadow focus:outline-none focus:ring-2 focus:ring-brand/50 focus:bg-white/[0.06]"
+              />
+              <div className="absolute end-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                {localSearch && (
                   <button
                     type="button"
-                    onClick={() => loadDirectories(directoryListing.parentPath || undefined)}
-                    className="w-full px-3 py-2 text-left text-xs text-gray-300 hover:text-white hover:bg-surface-300 dark:hover:bg-surface-300 transition-colors border-b border-surface-300/60"
+                    onClick={clearSearch}
+                    className="h-7 w-7 rounded-md flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10"
                   >
-                    .. Up
+                    <X size={14} />
                   </button>
                 )}
-
-                {directoryLoading && (
-                  <div className="px-3 py-3 text-xs text-gray-400 flex items-center gap-2">
-                    <RefreshCw size={12} className="animate-spin" />
-                    Loading folders...
-                  </div>
-                )}
-
-                {!directoryLoading && directoryListing?.entries.length === 0 && (
-                  <div className="px-3 py-3 text-xs text-gray-500">
-                    No subfolders here.
-                  </div>
-                )}
-
-                {!directoryLoading && directoryListing?.entries.map((entry) => (
-                  <button
-                    key={entry.path}
-                    type="button"
-                    onClick={() => loadDirectories(entry.path)}
-                    className="w-full px-3 py-2 text-left text-xs text-gray-300 hover:text-white hover:bg-surface-300 dark:hover:bg-surface-300 transition-colors flex items-center gap-2 border-b border-surface-300/40 last:border-b-0"
-                  >
-                    <FolderOpen size={13} className="text-brand shrink-0" />
-                    <span className="truncate">{entry.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveLocation}
-                  disabled={locationSaving || scanning || !directoryListing?.currentPath}
-                  className="w-full h-8 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold
-                             transition-all flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw
-                    size={10}
-                    className={locationSaving || scanning ? "animate-spin" : ""}
-                  />
-                  {locationSaving || scanning ? "Saving and Scanning..." : "Save Folder and Scan"}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-        {/* ── Clear Cache button ─────────────────────────────── */}
-        <div className="relative" ref={clearCacheRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowClearConfirm((v) => !v);
-              setClearError(null);
-            }}
-            className={`h-9 flex items-center gap-2 px-3 rounded-xl text-sm font-medium border transition-all
-              ${
-                showClearConfirm
-                  ? "bg-red-500/10 text-red-400 border-red-500/40"
-                  : "bg-transparent border-transparent text-gray-300 hover:text-red-400 hover:bg-surface-200/80 hover:border-red-500/40"
-              }`}
-            title="Clear Library Cache"
-          >
-            <Trash2 size={15} />
-            <span className="hidden lg:block">Clear Cache</span>
-          </button>
-
-          {showClearConfirm && (
-            <div className="absolute top-full right-0 mt-2 w-72 bg-surface-100/95 backdrop-blur-xl border border-red-500/20 rounded-2xl p-5 shadow-2xl z-50 animate-fade-in text-left">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-1 bg-red-500/10 text-red-400 rounded-md">
-                  <AlertCircle size={14} />
-                </div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Clear Library Cache
-                </h3>
-              </div>
-
-              <p className="text-[11px] text-gray-400 mb-4 leading-relaxed">
-                This will permanently delete all scanned videos, watch history,
-                and course markers from the local database. Your actual video
-                files will not be touched. You will need to rescan after.
-              </p>
-
-              {clearError && (
-                <div className="mb-3 p-2 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] rounded-lg flex items-start gap-1">
-                  <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                  <p className="flex-1">{clearError}</p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    setShowClearConfirm(false);
-                    setClearError(null);
+                    setShowUrlDropdown((v) => {
+                      const next = !v;
+                      if (next) {
+                        setShowLocationDropdown(false);
+                        setShowClearConfirm(false);
+                        setShowToolsMenu(false);
+                      }
+                      return next;
+                    });
                   }}
-                  className="flex-1 h-8 rounded-lg bg-surface-300 hover:bg-surface-200 text-gray-300 text-xs font-semibold transition-all"
+                  className={`h-7 w-7 rounded-md flex items-center justify-center transition-colors ${
+                    showUrlDropdown
+                      ? "bg-brand/20 text-brand"
+                      : "text-gray-500 hover:text-brand hover:bg-brand/10"
+                  }`}
+                  title={t("nav.playStreamTitle")}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearCache}
-                  disabled={clearing}
-                  className="flex-1 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {clearing ? (
-                    <RefreshCw size={11} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={11} />
-                  )}
-                  {clearing ? "Clearing…" : "Yes, Clear All"}
+                  <Link2 size={15} />
                 </button>
               </div>
             </div>
-          )}
-        </div>
 
-        <button
-          onClick={handleScan}
-          disabled={scanning}
-          className="h-9 flex items-center gap-2 px-3 rounded-xl text-sm font-semibold
-                     bg-brand hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed
-                     transition-all shadow-sm shadow-brand/20"
-          title="Rescan Library"
-        >
-          <RefreshCw size={15} className={scanning ? "animate-spin" : ""} />
-          <span className="hidden sm:block">
-            {scanning ? "Scanning…" : "Rescan"}
-          </span>
-        </button>
+            {localSearch.trim() && /^https?:\/\//i.test(localSearch.trim()) && (
+              <div className="absolute inset-x-0 top-[calc(100%+6px)] z-50 rounded-xl border border-brand/25 bg-surface-100/95 p-2 shadow-xl backdrop-blur-xl animate-fade-in">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const u = localSearch.trim();
+                    setLocalSearch("");
+                    setSearch("");
+                    navigate(`/watch/external?url=${encodeURIComponent(u)}`);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-lg p-2.5 text-start hover:bg-brand/10 transition-colors"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
+                    <Play size={14} className="fill-current" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-medium text-gray-200">
+                      {t("nav.playUrlHint")}
+                    </span>
+                    <span className="block truncate text-[10px] font-mono text-brand/80 mt-0.5">
+                      {localSearch.trim()}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {showUrlDropdown && (
+              <div className={`${POPOVER} inset-x-0 sm:inset-x-auto sm:w-[320px]`}>
+                <p className="text-sm font-semibold text-white mb-1">
+                  {t("nav.playStreamTitle")}
+                </p>
+                <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                  {t("nav.playStreamDesc")}
+                </p>
+                {error && (
+                  <div className="mb-3 flex gap-2 rounded-lg border border-brand/20 bg-brand/10 p-2.5 text-xs text-brand">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                    <p>{error}</p>
+                  </div>
+                )}
+                <form onSubmit={handlePlayStream} className="space-y-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder={t("nav.pasteUrlPlaceholder")}
+                      className="w-full h-9 rounded-lg bg-surface-200/80 ps-3 pe-16 text-sm text-white placeholder:text-gray-500 ring-1 ring-white/[0.06] focus:outline-none focus:ring-2 focus:ring-brand/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={handlePaste}
+                      className="absolute end-1 top-1/2 -translate-y-1/2 rounded-md bg-white/10 px-2 py-1 text-[10px] font-medium text-gray-300 hover:text-white"
+                    >
+                      {t("nav.paste")}
+                    </button>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!url.trim()}
+                    className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-brand text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
+                  >
+                    <Play size={12} className="fill-current" />
+                    {t("nav.playStream")}
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 lg:w-1/4 justify-end">
+
+            <div className="hidden md:block">
+              <LanguageSwitcher />
+            </div>
+            <div className="md:hidden">
+              <LanguageSwitcher compact />
+            </div>
+
+            <NavIconButton
+              onClick={toggleTheme}
+              title={theme === "dark" ? t("nav.themeLight") : t("nav.themeDark")}
+              aria-label={t("nav.toggleTheme")}
+            >
+              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            </NavIconButton>
+
+            <NavDivider />
+
+            <div className="relative hidden md:block" ref={locationRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (showLocationDropdown) {
+                    setShowLocationDropdown(false);
+                  } else {
+                    openFolderPicker();
+                  }
+                }}
+                title={
+                  videosDir
+                    ? t("nav.videoFolderTitle", { path: videosDir })
+                    : t("nav.setVideoFolder")
+                }
+                className={`h-9 flex items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors ${
+                  showLocationDropdown
+                    ? "bg-white/10 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <FolderOpen size={16} />
+                <span className="hidden lg:inline">{t("nav.folder")}</span>
+              </button>
+              {showLocationDropdown && (
+                <div className={`${POPOVER} w-96 max-w-[min(100vw-1rem,420px)] p-4`}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                      <FolderOpen size={14} />
+                    </div>
+                    <p className="text-sm font-bold text-white">{t("nav.videoFolder")}</p>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mb-4 leading-relaxed pl-9">
+                    {t("nav.videoFolderDesc")}
+                  </p>
+                  
+                  {locationError && (
+                    <div className="mb-4 flex gap-2.5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+                      <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                      <p className="leading-relaxed">{locationError}</p>
+                    </div>
+                  )}
+
+                  <div className="mb-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5 pl-1">
+                      {t("nav.currentFolder")}
+                    </p>
+                    <div className="flex items-center gap-2 rounded-xl bg-surface-200/50 p-2.5 ring-1 ring-surface-300/30 overflow-hidden">
+                      <HardDrive size={14} className="text-gray-400 shrink-0" />
+                      <p className="text-xs text-gray-200 font-mono break-all line-clamp-2">
+                        {directoryListing?.currentPath || videosDir || t("nav.loading")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-surface-200/20 rounded-xl ring-1 ring-surface-300/20 overflow-hidden mb-4 flex flex-col">
+                    <div className="bg-surface-200/40 px-3 py-2 border-b border-surface-300/30">
+                      <p className="text-[10px] font-semibold uppercase text-gray-400">Select Directory</p>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                      {directoryListing?.parentPath && (
+                        <button
+                          type="button"
+                          onClick={() => loadDirectories(directoryListing.parentPath || undefined)}
+                          className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-start text-xs font-medium text-gray-400 hover:bg-surface-300/40 hover:text-white transition-colors"
+                        >
+                          <CornerLeftUp size={14} className="text-gray-500" />
+                          <span>.. (Go Up)</span>
+                        </button>
+                      )}
+                      
+                      {directoryLoading ? (
+                        <div className="flex flex-col items-center justify-center py-6 gap-2 text-gray-500">
+                          <RefreshCw size={16} className="animate-spin text-brand" />
+                          <span className="text-[10px] font-medium uppercase tracking-wider">{t("nav.loadingFolders")}</span>
+                        </div>
+                      ) : directoryListing?.entries.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 gap-1 text-gray-500">
+                          <FolderOpen size={20} className="text-surface-300" />
+                          <span className="text-[11px] font-medium">{t("nav.noSubfolders")}</span>
+                        </div>
+                      ) : (
+                        directoryListing?.entries.map((entry) => (
+                          <button
+                            key={entry.path}
+                            type="button"
+                            onClick={() => loadDirectories(entry.path)}
+                            className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-start text-xs font-medium text-gray-300 hover:bg-surface-300/40 hover:text-white transition-colors"
+                          >
+                            <FolderOpen size={14} className="text-brand opacity-80 group-hover:opacity-100 transition-opacity shrink-0" />
+                            <span className="truncate flex-1">{entry.name}</span>
+                            <ChevronRight size={12} className="text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveLocation}
+                    disabled={locationSaving || scanning || !directoryListing?.currentPath}
+                    className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand text-sm font-bold text-white hover:bg-brand-hover shadow-lg shadow-brand/20 disabled:opacity-50 transition-all active:scale-[0.98]"
+                  >
+                    <RefreshCw size={16} className={locationSaving || scanning ? "animate-spin" : ""} />
+                    {locationSaving || scanning ? t("nav.savingScanning") : t("nav.saveFolderScan")}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleScan}
+              disabled={scanning}
+              title={t("nav.rescanTitle")}
+              className="hidden sm:flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3 text-sm font-semibold text-white shadow-lg shadow-brand/20 hover:bg-brand-hover disabled:opacity-60 transition-colors"
+            >
+              <RefreshCw size={15} className={scanning ? "animate-spin" : ""} />
+              <span className="hidden lg:inline">
+                {scanning ? t("nav.scanning") : t("nav.rescan")}
+              </span>
+            </button>
+
+            <div className="relative" ref={toolsMenuRef}>
+              <NavIconButton
+                onClick={() => setShowToolsMenu((v) => !v)}
+                title={t("nav.toolsMenu")}
+                active={showToolsMenu}
+              >
+                <MoreVertical size={17} />
+              </NavIconButton>
+
+              {showToolsMenu && (
+                <div className={`${POPOVER} w-56 p-1.5`}>
+                  <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                    {t("nav.libraryTools")}
+                  </p>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white md:hidden"
+                    onClick={openFolderPicker}
+                  >
+                    <FolderOpen size={16} className="text-brand" />
+                    {t("nav.folder")}
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white sm:hidden"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      handleScan();
+                    }}
+                    disabled={scanning}
+                  >
+                    <RefreshCw size={16} className={scanning ? "animate-spin text-brand" : "text-brand"} />
+                    {scanning ? t("nav.scanning") : t("nav.rescan")}
+                  </button>
+                  <Link
+                    to="/history"
+                    className="flex sm:hidden items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white"
+                    onClick={() => setShowToolsMenu(false)}
+                  >
+                    <History size={16} />
+                    {t("nav.watchHistory")}
+                  </Link>
+                  <Link
+                    to="/favorites"
+                    className="flex sm:hidden items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white"
+                    onClick={() => setShowToolsMenu(false)}
+                  >
+                    <Heart size={16} />
+                    {t("nav.favorites")}
+                  </Link>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      setShowUrlDropdown(true);
+                    }}
+                  >
+                    <Link2 size={16} className="text-brand" />
+                    {t("nav.playStreamTitle")}
+                  </button>
+                  <div className="my-1 h-px bg-white/[0.06]" />
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-red-400/90 hover:bg-red-500/10 hover:text-red-300"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      setShowClearConfirm(true);
+                      setClearError(null);
+                    }}
+                  >
+                    <Trash2 size={16} />
+                    {t("nav.clearCache")}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </nav>
+      </div>
+
+      {/* Clear cache confirm — fixed to viewport corner */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-20 sm:justify-end sm:pt-16 sm:pe-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+            aria-label={t("nav.cancel")}
+            onClick={() => {
+              setShowClearConfirm(false);
+              setClearError(null);
+            }}
+          />
+          <div
+            ref={clearCacheRef}
+            className="relative w-full max-w-sm rounded-xl border border-red-500/20 bg-surface-100 p-5 shadow-2xl animate-fade-in"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle size={18} className="text-red-400" />
+              <h3 className="text-sm font-semibold text-white">{t("nav.clearCacheHeading")}</h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-4 leading-relaxed">{t("nav.clearCacheDesc")}</p>
+            {clearError && (
+              <p className="mb-3 text-xs text-red-300">{clearError}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowClearConfirm(false);
+                  setClearError(null);
+                }}
+                className="flex-1 h-9 rounded-lg bg-white/5 text-sm font-medium text-gray-300 hover:bg-white/10"
+              >
+                {t("nav.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleClearCache}
+                disabled={clearing}
+                className="flex-1 h-9 rounded-lg bg-red-500 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {clearing && <RefreshCw size={14} className="animate-spin" />}
+                {clearing ? t("nav.clearing") : t("nav.clearConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
