@@ -9,7 +9,11 @@ export default function Home() {
   // If search or category active, show filtered grid
   if (search || category) {
     // Show only the last path segment as the folder title (e.g. "Udemy/Animation" → "Animation")
-    const folderName = category ? category.split('/').filter(Boolean).at(-1) ?? category : '';
+    const folderName = (() => {
+      if (!category) return '';
+      const parts = category.split('/').filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : category;
+    })();
     return (
       <div>
         <h1 className="text-xl font-semibold mb-6">

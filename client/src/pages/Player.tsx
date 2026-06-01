@@ -1511,7 +1511,6 @@ export default function Player() {
                   </button>
                 )}
               </div>
-            )}
 
             {activeTab === "videos" && showCourseTab && activeCourse ? (
               <CoursePlayerSidebar
