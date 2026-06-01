@@ -442,7 +442,7 @@ export default function Sidebar() {
       style={{ width: `${width}px` }}
     >
 {/* Mini calendar */}
-<div className="grid grid-cols-7 gap-1 px-2 py-1">
+<div className="grid grid-cols-7 gap-1 px-4 py-1">
   {Array.from({ length: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() }, (_, i) => i + 1).map((day) => (
     <div
       key={day}
