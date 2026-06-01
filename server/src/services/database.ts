@@ -95,7 +95,6 @@ function folderPathMatchesExpression(alias = 'v'): string {
   return `(
     @folderPath = ''
     OR (@folderPath = 'Uncategorized' AND ${alias}.relativePath NOT LIKE '%/%' AND ${alias}.relativePath NOT LIKE '%\\%')
-    OR ${alias}.relativePath = @folderPath
     OR ${alias}.relativePath LIKE @folderPath || '/%'
     OR ${alias}.relativePath LIKE @folderPath || '\\%'
   )`;
