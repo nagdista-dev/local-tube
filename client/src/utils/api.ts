@@ -1,4 +1,4 @@
-import { Video, Category, VideoListResponse, ScanStatus, DownloadJob, LibraryLocation, DirectoryListing } from '../types';
+import { Video, Category, VideoListResponse, ScanStatus, DownloadJob, LibraryLocation, DirectoryListing, YouTubeMetadata } from '../types';
 
 const BASE = '/api';
 
@@ -59,6 +59,10 @@ export const api = {
       return request(`${BASE}/videos/favorites`);
     },
 
+    youtube(videoId: string): Promise<YouTubeMetadata> {
+      return request(`${BASE}/videos/youtube/${encodeURIComponent(videoId)}`);
+    },
+
     toggleFavorite(id: string): Promise<{ isFavorite: boolean }> {
       return request(`${BASE}/videos/${id}/favorite`, { method: 'POST' });
     },
@@ -115,6 +119,9 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ videosDir }),
       });
+    },
+    clearCache(): Promise<{ ok: boolean; message: string }> {
+      return request(`${BASE}/scan/clear-cache`, { method: 'POST' });
     },
   },
 

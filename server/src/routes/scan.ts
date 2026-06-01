@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { scanLibrary, getScanStatus } from '../services/scanner';
 import { getLibraryLocation, listLibraryDirectories, setLibraryLocation } from '../services/libraryConfig';
+import { videoDb } from '../services/database';
 
 const router = Router();
 
@@ -74,6 +75,20 @@ router.post('/location', (req: Request, res: Response) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Invalid library location';
     res.status(400).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/scan/clear-cache
+ * Wipe all videos and watch history from the database.
+ */
+router.post('/clear-cache', (_req: Request, res: Response) => {
+  try {
+    videoDb.clearAll();
+    res.json({ ok: true, message: 'Cache cleared. Rescan to rebuild the library.' });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to clear cache';
+    res.status(500).json({ error: message });
   }
 });
 

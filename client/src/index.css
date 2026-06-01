@@ -13,6 +13,17 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
   /* Force Tajawal for any RTL layouts or font-arabic markers */
   .font-arabic,
   [dir="rtl"],
