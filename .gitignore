@@ -1,7 +1,8 @@
 # Node dependencies
 node_modules/
 client/node_modules/
-.github
+*.github
+.gitignore.bak
 # Build output
 dist/
 build/
