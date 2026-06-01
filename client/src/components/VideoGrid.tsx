@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../utils/api';
 import VideoCard from './VideoCard';
@@ -13,10 +13,168 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  ListVideo,
+  Target,
+  BarChart3,
+  Clock,
+  CalendarCheck,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { formatDuration } from '../utils/format';
 import CourseStudyPlanner from './CourseStudyPlanner';
+
+/* ─── Course‑page tab types ─────────────────────────────────────── */
+type CourseTab = 'videos' | 'studyPlan' | 'progress';
+
+function CourseTabs({
+  activeTab,
+  onTabChange,
+  videoCount,
+  t,
+}: {
+  activeTab: CourseTab;
+  onTabChange: (tab: CourseTab) => void;
+  videoCount: number;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const tabs: { id: CourseTab; label: string; icon: typeof ListVideo; badge?: string }[] = [
+    { id: 'videos',    label: t('videoGrid.tabVideos'),    icon: ListVideo, badge: String(videoCount) },
+    { id: 'studyPlan', label: t('videoGrid.tabStudyPlan'), icon: Target },
+    { id: 'progress',  label: t('videoGrid.tabProgress'),  icon: BarChart3 },
+  ];
+
+  return (
+    <div
+      className="flex gap-1 px-1 pt-1 pb-0 mb-3 border-b border-surface-200/50 overflow-x-auto"
+      role="tablist"
+    >
+      {tabs.map(({ id, label, icon: Icon, badge }) => {
+        const active = activeTab === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onTabChange(id)}
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
+              active
+                ? 'border-brand text-white'
+                : 'border-transparent text-gray-500 hover:text-gray-200'
+            }`}
+          >
+            <Icon size={15} />
+            {label}
+            {badge && (
+              <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                active
+                  ? 'bg-brand/20 text-brand'
+                  : 'bg-surface-200/60 text-gray-500'
+              }`}>
+                {badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CourseProgressPanel({
+  activeCategory,
+  courseProgress,
+  allVideos,
+  t,
+}: {
+  activeCategory: Category;
+  courseProgress: number;
+  allVideos: { duration: number; watchProgress: number }[];
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const totalDuration = allVideos.reduce((s, v) => s + v.duration, 0);
+  const watchedDuration = allVideos.reduce(
+    (s, v) => s + Math.max(v.duration * Math.min(v.watchProgress, 1), 0),
+    0,
+  );
+  const completedCount = allVideos.filter(v => v.watchProgress >= 0.98).length;
+  const remainingDuration = Math.max(totalDuration - watchedDuration, 0);
+  const progressPercent = Math.round(courseProgress * 100);
+
+  return (
+    <div className="rounded-2xl border border-surface-200/50 bg-surface-50/30 overflow-hidden shadow-sm mb-4 animate-fade-in">
+      {/* Hero progress section */}
+      <div className="relative p-6 bg-gradient-to-br from-brand/10 via-surface-100/50 to-surface-50/30 border-b border-surface-200/50">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand/20 text-brand">
+            <BarChart3 size={15} />
+          </span>
+          <span className="text-[11px] font-bold text-brand uppercase tracking-widest">
+            {t('videoGrid.tabProgress')}
+          </span>
+        </div>
+        <h3 className="text-2xl font-black text-white tracking-tight mb-1">{activeCategory.name}</h3>
+        <p className="text-sm text-gray-400 max-w-2xl leading-relaxed mb-5">
+          {t('videoGrid.progressSubtitle')}
+        </p>
+
+        <div className="max-w-2xl">
+          <div className="flex justify-between items-end mb-1.5">
+            <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">{t('videoGrid.overallProgress')}</span>
+            <span className="text-sm font-bold text-white">{progressPercent}%</span>
+          </div>
+          <div className="h-2.5 w-full bg-surface-300/50 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand rounded-full transition-all duration-500 ease-out relative"
+              style={{ width: `${progressPercent}%` }}
+            >
+              <div className="absolute inset-0 bg-white/20 w-full animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
+        <div className="rounded-xl bg-surface-200/40 p-4 border border-surface-200/50 shadow-sm hover:bg-surface-200/60 transition-colors">
+          <div className="flex items-center gap-2 text-gray-400 mb-2">
+            <div className="p-1.5 rounded-lg bg-surface-300/30"><ListVideo size={16} className="text-brand" /></div>
+            <span className="text-[10px] font-bold uppercase tracking-wider">{t('videoGrid.totalVideos')}</span>
+          </div>
+          <p className="text-lg font-black text-white leading-none tracking-tight mb-1.5">{allVideos.length}</p>
+          <p className="text-[11px] font-medium text-gray-500 leading-snug">{t('videoGrid.totalDuration', { duration: formatDuration(totalDuration) })}</p>
+        </div>
+
+        <div className="rounded-xl bg-surface-200/40 p-4 border border-surface-200/50 shadow-sm hover:bg-surface-200/60 transition-colors">
+          <div className="flex items-center gap-2 text-gray-400 mb-2">
+            <div className="p-1.5 rounded-lg bg-surface-300/30"><CheckCircle2 size={16} className="text-emerald-400" /></div>
+            <span className="text-[10px] font-bold uppercase tracking-wider">{t('videoGrid.completed')}</span>
+          </div>
+          <p className="text-lg font-black text-white leading-none tracking-tight mb-1.5">{completedCount} / {allVideos.length}</p>
+          <p className="text-[11px] font-medium text-gray-500 leading-snug">{t('videoGrid.percentDone', { percent: progressPercent })}</p>
+        </div>
+
+        <div className="rounded-xl bg-surface-200/40 p-4 border border-surface-200/50 shadow-sm hover:bg-surface-200/60 transition-colors">
+          <div className="flex items-center gap-2 text-gray-400 mb-2">
+            <div className="p-1.5 rounded-lg bg-surface-300/30"><Clock size={16} className="text-sky-400" /></div>
+            <span className="text-[10px] font-bold uppercase tracking-wider">{t('videoGrid.remaining')}</span>
+          </div>
+          <p className="text-lg font-black text-white leading-none tracking-tight mb-1.5">{formatDuration(remainingDuration)}</p>
+          <p className="text-[11px] font-medium text-gray-500 leading-snug">{t('videoGrid.videosLeft', { count: allVideos.length - completedCount })}</p>
+        </div>
+
+        <div className="rounded-xl bg-surface-200/40 p-4 border border-surface-200/50 shadow-sm hover:bg-surface-200/60 transition-colors">
+          <div className="flex items-center gap-2 text-gray-400 mb-2">
+            <div className="p-1.5 rounded-lg bg-surface-300/30"><CalendarCheck size={16} className="text-amber-400" /></div>
+            <span className="text-[10px] font-bold uppercase tracking-wider">{t('videoGrid.watched')}</span>
+          </div>
+          <p className="text-lg font-black text-white leading-none tracking-tight mb-1.5">{formatDuration(watchedDuration)}</p>
+          <p className="text-[11px] font-medium text-gray-500 leading-snug">{t('videoGrid.ofTotal', { duration: formatDuration(totalDuration) })}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 import { useTranslation } from '../i18n';
 
 interface VideoGridProps {
@@ -73,6 +231,7 @@ function fromSortOption(sort: string): { field: string; dir: 'asc' | 'desc' } {
 }
 
 export default function VideoGrid({ category, sort, search }: VideoGridProps) {
+  const [courseTab, setCourseTab] = useState<CourseTab>('videos');
   const { t } = useTranslation();
   const viewLayout   = useStore(s => s.viewLayout);
   const setViewLayout = useStore(s => s.setViewLayout);
@@ -301,37 +460,87 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
         </div>
       </div>
 
-      {activeCategory?.isCourse && category && (
-        <CourseStudyPlanner
-          categoryPath={category}
-          courseTitle={activeCategory.name}
-        />
-      )}
+      {/* ── Course tabbed layout ────────────────────────────────────── */}
+      {activeCategory?.isCourse && category ? (
+        <>
+          <CourseTabs
+            activeTab={courseTab}
+            onTabChange={setCourseTab}
+            videoCount={allVideos.length}
+            t={t}
+          />
 
-      {/* ── Video list ──────────────────────────────────────────────────── */}
-      {displayLayout === 'list' ? (
-        <div className="flex flex-col gap-2 w-full">
-          {allVideos.map(video => (
-            <VideoCard
-              key={video.id}
-              video={video}
-              layout="list"
-              showCourseControls={Boolean(activeCategory?.isCourse)}
-              onProgressChange={refreshProgress}
-            />
-          ))}
-        </div>
+          {courseTab === 'videos' && (
+            displayLayout === 'list' ? (
+              <div className="flex flex-col gap-2 w-full animate-fade-in">
+                {allVideos.map(video => (
+                  <VideoCard
+                    key={video.id}
+                    video={video}
+                    layout="list"
+                    showCourseControls
+                    onProgressChange={refreshProgress}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 animate-fade-in">
+                {allVideos.map(video => (
+                  <VideoCard
+                    key={video.id}
+                    video={video}
+                    showCourseControls
+                    onProgressChange={refreshProgress}
+                  />
+                ))}
+              </div>
+            )
+          )}
+
+          {courseTab === 'studyPlan' && (
+            <div className="animate-fade-in">
+              <CourseStudyPlanner
+                categoryPath={category}
+                courseTitle={activeCategory.name}
+              />
+            </div>
+          )}
+
+          {courseTab === 'progress' && (
+            <div className="animate-fade-in">
+              <CourseProgressPanel
+                activeCategory={activeCategory}
+                courseProgress={courseProgress}
+                allVideos={allVideos}
+                t={t}
+              />
+            </div>
+          )}
+        </>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
-          {allVideos.map(video => (
-            <VideoCard
-              key={video.id}
-              video={video}
-              showCourseControls={Boolean(activeCategory?.isCourse)}
-              onProgressChange={refreshProgress}
-            />
-          ))}
-        </div>
+        /* ── Non-course video list ─────────────────────────────────── */
+        displayLayout === 'list' ? (
+          <div className="flex flex-col gap-2 w-full">
+            {allVideos.map(video => (
+              <VideoCard
+                key={video.id}
+                video={video}
+                layout="list"
+                onProgressChange={refreshProgress}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+            {allVideos.map(video => (
+              <VideoCard
+                key={video.id}
+                video={video}
+                onProgressChange={refreshProgress}
+              />
+            ))}
+          </div>
+        )
       )}
 
       {/* Infinite scroll trigger */}
