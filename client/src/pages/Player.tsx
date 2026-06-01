@@ -1105,7 +1105,7 @@ export default function Player() {
     viewMode === "theater"
       ? "w-full animate-fade-in"
       : activeCourse
-        ? "max-w-screen-2xl mx-auto animate-fade-in"
+        ? " mx-auto animate-fade-in"
         : " mx-auto animate-fade-in";
 
   const playerVisible = viewMode !== "mini";
