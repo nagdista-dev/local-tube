@@ -73,13 +73,13 @@ export default function VideoCard({
     return (
       <Link
         to={`/watch/${video.id}`}
-        className="group relative flex flex-row gap-4 p-3 rounded-xl overflow-hidden bg-surface-100/40
+        className="group relative flex flex-row gap-3 p-2 rounded-xl overflow-hidden bg-surface-100/40
                    border border-transparent hover:border-surface-300/50
                    transition-all duration-200 hover:scale-[1.005] hover:shadow-lg
                    hover:shadow-black/20 animate-fade-in w-full"
       >
         {/* Thumbnail on left */}
-        <div className="relative w-52 shrink-0 aspect-video bg-surface-200 rounded-lg overflow-hidden">
+        <div className="relative w-44 shrink-0 aspect-video bg-surface-200 rounded-lg overflow-hidden">
           {thumbSrc ? (
             <>
               {!imgLoaded && (
@@ -141,17 +141,17 @@ export default function VideoCard({
         </div>
 
         {/* Info on right */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
           <div>
             <h3
-              className={`text-base font-semibold text-gray-100 leading-snug line-clamp-2 mb-1.5 ${
+              className={`text-sm font-semibold text-gray-100 leading-snug line-clamp-2 mb-1 ${
                 arabic ? "font-arabic text-right" : ""
               }`}
               dir={arabic ? "rtl" : undefined}
             >
               {video.title}
             </h3>
-            <p className="text-xs text-gray-400 mb-2">
+            <p className="text-xs text-gray-400 mb-1.5">
               {video.subcategory
                 ? `${video.category} › ${video.subcategory}`
                 : video.category}
@@ -188,7 +188,7 @@ export default function VideoCard({
   return (
     <Link
       to={`/watch/${video.id}`}
-      className="group relative flex flex-col rounded-xl overflow-hidden bg-surface-100
+      className="group relative flex flex-col rounded-lg overflow-hidden bg-surface-100
                  border border-transparent hover:border-surface-300
                  transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl
                  hover:shadow-black/50 animate-fade-in"
@@ -260,7 +260,7 @@ export default function VideoCard({
       </div>
 
       {/* Info */}
-      <div className="p-2.5">
+      <div className="p-2">
         <h3
           className={`text-sm font-medium text-gray-100 dark:text-gray-100 leading-tight line-clamp-2 mb-1 ${
             arabic ? "font-arabic text-right" : ""

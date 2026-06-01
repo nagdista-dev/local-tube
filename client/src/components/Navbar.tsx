@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Menu,
   Search,
@@ -14,6 +15,8 @@ import {
   Moon,
   Sun,
   FolderOpen,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useTheme } from "../hooks/useTheme";
@@ -23,6 +26,7 @@ import type { DirectoryListing } from "../types";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const search = useStore((s) => s.filters.search);
   const setSearch = useStore((s) => s.setSearch);
@@ -32,6 +36,12 @@ export default function Navbar() {
   const [scanning, setScanning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
+
+  // ── Clear Cache States ─────────────────────────────────────────────────────
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+  const clearCacheRef = useRef<HTMLDivElement>(null);
 
   // ── Play External URL States inside Navbar popover ────────────────────────
   const [showUrlDropdown, setShowUrlDropdown] = useState(false);
@@ -67,6 +77,20 @@ export default function Navbar() {
         !locationRef.current.contains(e.target as Node)
       ) {
         setShowLocationDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        clearCacheRef.current &&
+        !clearCacheRef.current.contains(e.target as Node)
+      ) {
+        setShowClearConfirm(false);
+        setClearError(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -204,13 +228,33 @@ export default function Navbar() {
     inputRef.current?.focus();
   };
 
+  const handleClearCache = useCallback(async () => {
+    setClearing(true);
+    setClearError(null);
+    try {
+      await api.scan.clearCache();
+      // Reset all client-side caches
+      queryClient.clear();
+      useStore.getState().setCategory("");
+      useStore.getState().setSearch("");
+      setLocalSearch("");
+      setShowClearConfirm(false);
+      navigate("/");
+      window.location.reload();
+    } catch (err: unknown) {
+      setClearError(err instanceof Error ? err.message : "Failed to clear cache.");
+    } finally {
+      setClearing(false);
+    }
+  }, [queryClient, navigate]);
+
   return (
-    <header className="sticky top-0 z-40 h-14 flex items-center justify-between px-4 bg-surface/95 dark:bg-surface/95 backdrop-blur-sm border-b border-surface-200 dark:border-surface-200 transition-colors duration-200">
+    <header className="sticky top-0 z-40 min-h-16 flex items-center gap-4 px-4 sm:px-5 bg-surface/90 dark:bg-surface/90 backdrop-blur-xl border-b border-surface-200/70 dark:border-surface-200/70 shadow-sm shadow-black/10 transition-colors duration-200">
       {/* Left Block: Menu and Logo */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 min-w-fit">
         <button
           onClick={toggleSidebar}
-          className="p-2 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-200 transition-colors text-white dark:text-white"
+          className="w-10 h-10 rounded-xl hover:bg-surface-200/80 dark:hover:bg-surface-200/80 transition-colors text-gray-300 hover:text-white dark:text-gray-300 dark:hover:text-white flex items-center justify-center"
           aria-label="Toggle sidebar"
         >
           <Menu size={20} />
@@ -223,12 +267,12 @@ export default function Navbar() {
             setSearch("");
             useStore.getState().setCategory("");
           }}
-          className="flex items-center gap-2 shrink-0 mr-4"
+          className="flex items-center gap-2.5 shrink-0 rounded-xl px-1.5 py-1 hover:bg-surface-100/70 transition-colors"
         >
-          <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-brand rounded-xl flex items-center justify-center shadow-sm shadow-brand/20">
             <Film size={18} className="text-white" />
           </div>
-          <span className="font-bold text-lg tracking-tight text-white dark:text-white hidden sm:block">
+          <span className="font-bold text-lg tracking-tight text-white dark:text-white hidden md:block">
             Local<span className="text-brand">Tube</span>
           </span>
         </Link>
@@ -236,14 +280,14 @@ export default function Navbar() {
 
       {/* Center Block: Centered Search Bar & URL Play Popover */}
       <div
-        className="flex-1 flex justify-center max-w-xl mx-auto px-4 relative"
+        className="flex-1 flex justify-center min-w-[180px] max-w-2xl mx-auto relative"
         ref={dropdownRef}
       >
-        <div className="relative w-full max-w-md flex items-center gap-2">
+        <div className="relative w-full max-w-xl flex items-center gap-2 rounded-2xl bg-surface-50/70 border border-surface-200/70 px-2 py-1.5 shadow-inner shadow-black/10">
           <div className="relative flex-1">
             <Search
               size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-400 pointer-events-none"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 pointer-events-none"
             />
             <input
               ref={inputRef}
@@ -266,9 +310,9 @@ export default function Navbar() {
                 }
               }}
               placeholder="Search videos, categories…"
-              className="w-full h-9 pl-9 pr-8 rounded-full bg-surface-200 dark:bg-surface-200 border border-surface-300 dark:border-surface-300
+              className="w-full h-9 pl-10 pr-8 rounded-xl bg-transparent border border-transparent
                          text-sm placeholder:text-gray-500 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1
-                         focus:ring-brand focus:border-brand transition-all text-white dark:text-white"
+                         focus:ring-brand/70 focus:border-brand/60 transition-all text-white dark:text-white"
             />
             {localSearch && (
               <button
@@ -284,11 +328,11 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => setShowUrlDropdown(!showUrlDropdown)}
-            className={`p-2 rounded-full border transition-all shrink-0 hover:bg-brand/10 hover:text-brand hover:border-brand/40
+            className={`w-9 h-9 rounded-xl border transition-all shrink-0 hover:bg-brand/10 hover:text-brand hover:border-brand/40 flex items-center justify-center
                         ${
                           showUrlDropdown
                             ? "bg-brand/10 text-brand border-brand/50 shadow-md shadow-brand/10"
-                            : "bg-surface-200 dark:bg-surface-200 border-surface-300 dark:border-surface-300 text-gray-400 dark:text-gray-400"
+                            : "bg-surface-100/80 dark:bg-surface-100/80 border-surface-200 dark:border-surface-200 text-gray-400 dark:text-gray-400"
                         }`}
             title="Play Stream from URL"
           >
@@ -382,31 +426,35 @@ export default function Navbar() {
       </div>
 
       {/* Right Block: Actions */}
-      <nav className="flex items-center gap-1 shrink-0">
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-200 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white"
-          title={
-            theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
-          }
-          aria-label="Toggle theme"
-        >
-          {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-        <Link
-          to="/history"
-          className="p-2 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-200 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white"
-          title="Watch History"
-        >
-          <History size={20} />
-        </Link>
-        <Link
-          to="/favorites"
-          className="p-2 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-200 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white"
-          title="Favorites"
-        >
-          <Heart size={20} />
-        </Link>
+      <nav className="flex items-center gap-2 shrink-0">
+        <div className="hidden sm:flex items-center gap-1 rounded-2xl bg-surface-50/70 border border-surface-200/70 p-1">
+          <button
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-xl hover:bg-surface-200/80 dark:hover:bg-surface-200/80 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white flex items-center justify-center"
+            title={
+              theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
+            }
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <Link
+            to="/history"
+            className="w-9 h-9 rounded-xl hover:bg-surface-200/80 dark:hover:bg-surface-200/80 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white flex items-center justify-center"
+            title="Watch History"
+          >
+            <History size={18} />
+          </Link>
+          <Link
+            to="/favorites"
+            className="w-9 h-9 rounded-xl hover:bg-surface-200/80 dark:hover:bg-surface-200/80 transition-colors text-gray-400 dark:text-gray-400 hover:text-white dark:hover:text-white flex items-center justify-center"
+            title="Favorites"
+          >
+            <Heart size={18} />
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-1.5 rounded-2xl bg-surface-50/70 border border-surface-200/70 p-1">
         <div className="relative" ref={locationRef}>
           <button
             type="button"
@@ -418,11 +466,11 @@ export default function Navbar() {
                 return !open;
               });
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all
+            className={`h-9 flex items-center gap-2 px-3 rounded-xl text-sm font-medium border transition-all
                        ${
                          showLocationDropdown
                            ? "bg-brand/10 text-brand border-brand/50"
-                           : "bg-surface-200 dark:bg-surface-200 border-surface-300 dark:border-surface-300 text-gray-300 hover:text-white hover:border-brand/40"
+                           : "bg-transparent border-transparent text-gray-300 hover:text-white hover:bg-surface-200/80 hover:border-surface-300"
                        }`}
             title={videosDir ? `Video Folder: ${videosDir}` : "Set Video Folder"}
           >
@@ -517,12 +565,85 @@ export default function Navbar() {
             </div>
           )}
         </div>
+        {/* ── Clear Cache button ─────────────────────────────── */}
+        <div className="relative" ref={clearCacheRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowClearConfirm((v) => !v);
+              setClearError(null);
+            }}
+            className={`h-9 flex items-center gap-2 px-3 rounded-xl text-sm font-medium border transition-all
+              ${
+                showClearConfirm
+                  ? "bg-red-500/10 text-red-400 border-red-500/40"
+                  : "bg-transparent border-transparent text-gray-300 hover:text-red-400 hover:bg-surface-200/80 hover:border-red-500/40"
+              }`}
+            title="Clear Library Cache"
+          >
+            <Trash2 size={15} />
+            <span className="hidden lg:block">Clear Cache</span>
+          </button>
+
+          {showClearConfirm && (
+            <div className="absolute top-full right-0 mt-2 w-72 bg-surface-100/95 backdrop-blur-xl border border-red-500/20 rounded-2xl p-5 shadow-2xl z-50 animate-fade-in text-left">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1 bg-red-500/10 text-red-400 rounded-md">
+                  <AlertCircle size={14} />
+                </div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Clear Library Cache
+                </h3>
+              </div>
+
+              <p className="text-[11px] text-gray-400 mb-4 leading-relaxed">
+                This will permanently delete all scanned videos, watch history,
+                and course markers from the local database. Your actual video
+                files will not be touched. You will need to rescan after.
+              </p>
+
+              {clearError && (
+                <div className="mb-3 p-2 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] rounded-lg flex items-start gap-1">
+                  <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                  <p className="flex-1">{clearError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowClearConfirm(false);
+                    setClearError(null);
+                  }}
+                  className="flex-1 h-8 rounded-lg bg-surface-300 hover:bg-surface-200 text-gray-300 text-xs font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearCache}
+                  disabled={clearing}
+                  className="flex-1 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {clearing ? (
+                    <RefreshCw size={11} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={11} />
+                  )}
+                  {clearing ? "Clearing…" : "Yes, Clear All"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={handleScan}
           disabled={scanning}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+          className="h-9 flex items-center gap-2 px-3 rounded-xl text-sm font-semibold
                      bg-brand hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed
-                     transition-all"
+                     transition-all shadow-sm shadow-brand/20"
           title="Rescan Library"
         >
           <RefreshCw size={15} className={scanning ? "animate-spin" : ""} />
@@ -530,6 +651,7 @@ export default function Navbar() {
             {scanning ? "Scanning…" : "Rescan"}
           </span>
         </button>
+        </div>
       </nav>
     </header>
   );

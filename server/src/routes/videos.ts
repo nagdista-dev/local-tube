@@ -1,5 +1,4 @@
 import { Router, Request, Response } from "express";
-import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { Video } from "../types";
 import { videoDb } from "../services/database";
@@ -7,8 +6,17 @@ import { startDownload, getJobStatus } from "../services/downloader";
 
 const router = Router();
 
-function sortKeyFromFilename(filename: string): string {
-  return path.basename(filename, path.extname(filename)).toLowerCase();
+function parseIsoDuration(value?: string): number {
+  if (!value) return 0;
+  const match = value.match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!match) return 0;
+  const [, days = "0", hours = "0", minutes = "0", seconds = "0"] = match;
+  return (
+    parseInt(days, 10) * 86400 +
+    parseInt(hours, 10) * 3600 +
+    parseInt(minutes, 10) * 60 +
+    parseInt(seconds, 10)
+  );
 }
 
 // ─── GET /api/videos ──────────────────────────────────────────────────────
@@ -24,45 +32,9 @@ router.get("/", (req: Request, res: Response) => {
     const category = req.query.category as string | undefined;
     const sort = (req.query.sort as string) || "date";
 
-    let videos = category
-      ? videoDb.findByCategory(category, pageSize, offset)
-      : videoDb.findAll(pageSize, offset);
-
-    // Client-side sorting (already limited by pageSize so it's fast)
-    switch (sort) {
-      case "name":
-        videos = videos.sort((a, b) =>
-          sortKeyFromFilename(a.filename).localeCompare(sortKeyFromFilename(b.filename))
-        );
-        break;
-      case "name-desc":
-        videos = videos.sort((a, b) =>
-          sortKeyFromFilename(b.filename).localeCompare(sortKeyFromFilename(a.filename))
-        );
-        break;
-      case "date-asc":
-        videos = videos.sort((a, b) => new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime());
-        break;
-      case "size":
-        videos = videos.sort((a, b) => b.fileSize - a.fileSize);
-        break;
-      case "size-asc":
-        videos = videos.sort((a, b) => a.fileSize - b.fileSize);
-        break;
-      case "duration":
-        videos = videos.sort((a, b) => b.duration - a.duration);
-        break;
-      case "duration-asc":
-        videos = videos.sort((a, b) => a.duration - b.duration);
-        break;
-      case "progress":
-        videos = videos.sort((a, b) => b.watchProgress - a.watchProgress);
-        break;
-      case "progress-asc":
-        videos = videos.sort((a, b) => a.watchProgress - b.watchProgress);
-        break;
-      // 'date' is the default DB order
-    }
+    const videos = category
+      ? videoDb.findByCategory(category, pageSize, offset, sort)
+      : videoDb.findAll(pageSize, offset, sort);
 
     const total = category
       ? videoDb.countByCategory(category)
@@ -158,6 +130,102 @@ router.get("/favorites", (_req: Request, res: Response) => {
     res.json(videoDb.getFavorites());
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch favorites" });
+  }
+});
+
+// ─── GET /api/videos/youtube/:videoId ────────────────────────────────────
+router.get("/youtube/:videoId", async (req: Request, res: Response) => {
+  const videoId = req.params.videoId;
+  const key = process.env.YOUTUBE_API_KEY;
+
+  if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+    return res.status(400).json({ error: "Invalid YouTube video ID" });
+  }
+
+  if (!key) {
+    return res.json({
+      videoId,
+      title: "",
+      description: "",
+      durationSeconds: 0,
+      channelTitle: "",
+      publishedAt: "",
+      comments: [],
+      unavailableReason: "Set YOUTUBE_API_KEY on the server to load YouTube details and comments.",
+    });
+  }
+
+  try {
+    const videoParams = new URLSearchParams({
+      part: "snippet,contentDetails",
+      id: videoId,
+      key,
+    });
+    const commentsParams = new URLSearchParams({
+      part: "snippet",
+      videoId,
+      maxResults: "30",
+      order: "relevance",
+      textFormat: "plainText",
+      key,
+    });
+
+    const [videoResponse, commentsResponse] = await Promise.all([
+      fetch(`https://www.googleapis.com/youtube/v3/videos?${videoParams}`),
+      fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${commentsParams}`),
+    ]);
+
+    const videoData = await videoResponse.json() as any;
+    if (!videoResponse.ok) {
+      return res.status(videoResponse.status).json({
+        error: videoData?.error?.message || "Failed to load YouTube video details",
+      });
+    }
+
+    const item = videoData.items?.[0];
+    if (!item) {
+      return res.status(404).json({ error: "YouTube video not found" });
+    }
+
+    let comments: {
+      id: string;
+      author: string;
+      text: string;
+      likeCount: number;
+      publishedAt: string;
+    }[] = [];
+    let commentsUnavailableReason = "";
+
+    if (commentsResponse.ok) {
+      const commentsData = await commentsResponse.json() as any;
+      comments = (commentsData.items || []).map((thread: any) => {
+        const comment = thread.snippet?.topLevelComment?.snippet || {};
+        return {
+          id: thread.id,
+          author: comment.authorDisplayName || "YouTube user",
+          text: comment.textOriginal || comment.textDisplay || "",
+          likeCount: comment.likeCount || 0,
+          publishedAt: comment.publishedAt || "",
+        };
+      });
+    } else {
+      const commentsData = await commentsResponse.json().catch(() => ({})) as any;
+      commentsUnavailableReason =
+        commentsData?.error?.message || "Comments are unavailable for this YouTube video.";
+    }
+
+    res.json({
+      videoId,
+      title: item.snippet?.title || "",
+      description: item.snippet?.description || "",
+      durationSeconds: parseIsoDuration(item.contentDetails?.duration),
+      channelTitle: item.snippet?.channelTitle || "",
+      publishedAt: item.snippet?.publishedAt || "",
+      comments,
+      commentsUnavailableReason,
+    });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message || "Failed to contact YouTube" });
   }
 });
 

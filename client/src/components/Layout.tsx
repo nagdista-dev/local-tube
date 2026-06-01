@@ -15,7 +15,7 @@ export default function Layout() {
         <main
           className={`flex-1 overflow-y-auto min-w-0 transition-all duration-200`}
         >
-          <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
+          <div className="max-w-screen-2xl mx-auto px-2 sm:px-3 py-3">
             <Outlet />
           </div>
         </main>

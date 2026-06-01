@@ -58,6 +58,26 @@ export interface VideoListResponse {
   hasMore: boolean;
 }
 
+export interface YouTubeComment {
+  id: string;
+  author: string;
+  text: string;
+  likeCount: number;
+  publishedAt: string;
+}
+
+export interface YouTubeMetadata {
+  videoId: string;
+  title: string;
+  description: string;
+  durationSeconds: number;
+  channelTitle: string;
+  publishedAt: string;
+  comments: YouTubeComment[];
+  unavailableReason?: string;
+  commentsUnavailableReason?: string;
+}
+
 export type SortOption =
   | 'date'
   | 'date-asc'
