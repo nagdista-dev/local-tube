@@ -27,7 +27,7 @@ import {
   Circle,
   MessageCircle,
   FileText,
-  Youtube,
+  Youtube, Search,
 } from "lucide-react";
 import { api, streamUrl } from "../utils/api";
 import { formatDuration, formatFileSize, isArabic } from "../utils/format";
@@ -473,6 +473,16 @@ function VideoInfoHeader({
           >
             {displayTitle}
           </h1>
+          <a
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${displayTitle} ${video.tags.join(' ')}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 p-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+            aria-label={t("player.searchYouTube")}
+            title={t("player.searchYouTube")}
+          >
+            <Search size={16} />
+          </a>
           {canEditTitle && onTitleSaved && (
             <button
               type="button"

@@ -341,6 +341,22 @@ export default function Sidebar() {
         <div className="sticky top-0 flex items-center justify-center px-2 py-1 my-1 rounded-lg shadow-sm text-xs font-medium text-white bg-surface/80 whitespace-nowrap">
           {formattedTime}
         </div>
+        {/* Month name */}
+        <div className="text-xs text-center text-gray-300 mt-1">
+          {now.toLocaleDateString(locale === "ar" ? "ar-EG" : undefined, { month: "long" })}
+        </div>
+        {/* Day squares up to today */}
+        <div className="grid grid-cols-7 gap-1 mt-1 px-2">
+          {Array.from({ length: now.getDate() }, (_, i) => i + 1).map((day) => (
+            <div
+              key={day}
+              className={`w-6 h-6 flex items-center justify-center rounded text-xs ${day === now.getDate() ? "bg-brand text-white" : "bg-surface-200/30 text-gray-400"}`}
+              title={`${day}`}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
         <div className="border-t border-surface-200 my-1" />
         {NAV_LINKS.map(({ to, icon: Icon, labelKey }) => (
           <Link
@@ -425,11 +441,25 @@ export default function Sidebar() {
       className={`shrink-0 flex flex-col h-full py-4 border-e border-surface-200 bg-surface/80 relative overflow-y-auto ${isResizing ? "select-none" : ""}`}
       style={{ width: `${width}px` }}
     >
-        {/* Clock at top of Aside */}
-        <div className="sticky top-0 flex items-center justify-center px-3 py-1 my-1 rounded-lg shadow-sm text-sm font-medium text-white bg-surface/80 whitespace-nowrap">
-          {formattedTime}
-        </div>
-        <div className="border-t border-surface-200 my-1" />
+{/* Mini calendar */}
+<div className="grid grid-cols-7 gap-1 px-2 py-1">
+  {Array.from({ length: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() }, (_, i) => i + 1).map((day) => (
+    <div
+      key={day}
+      className={`w-5 h-5 flex items-center justify-center rounded text-xs ${day <= now.getDate() ? "bg-red-600 text-white" : "bg-surface-200/30 text-gray-400"}`}
+      title={`${day}`}
+    >
+      {day}
+    </div>
+  ))}
+</div>
+<div className="border-t border-surface-200 my-1" />
+{/* Clock box */}
+<div className="px-4 py-2">
+  <div className="text-2xl font-bold text-white">{formattedTime}</div>
+  <div className="text-xs text-gray-400">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+</div>
+<div className="border-t border-surface-200 my-1" />
       {/* Main nav */}
       <nav className="flex flex-col gap-0.5 px-3">
         {NAV_LINKS.map(({ to, icon: Icon, labelKey }) => (
