@@ -78,3 +78,6 @@ coverage/
 
 # ─── Local Development Files ──────────────────────────────────────────────────
 .nvmrc.local
+# GitHub: Do not commit secrets
+.env
+.env.*
