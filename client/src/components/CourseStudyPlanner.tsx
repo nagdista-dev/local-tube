@@ -86,7 +86,8 @@ export default function CourseStudyPlanner({
   }, [savedPlan]);
 
   const saveMutation = useMutation({
-    mutationFn: (next: CourseStudyPlan) => api.videos.saveStudyPlan(categoryPath, next),
+    mutationFn: (next: CourseStudyPlan) =>
+      api.videos.saveStudyPlan(categoryPath, next),
     onSuccess: (data) => {
       queryClient.setQueryData(["course-study-plan", categoryPath], data);
     },
@@ -149,24 +150,30 @@ export default function CourseStudyPlanner({
     return (
       <div className="mb-4 rounded-2xl border border-surface-200/70 bg-surface-100/50 p-8 flex flex-col items-center justify-center gap-3 text-gray-400">
         <Loader2 size={24} className="animate-spin text-brand" />
-        <span className="text-sm font-medium">{t("coursePlanner.loading")}</span>
+        <span className="text-sm font-medium">
+          {t("coursePlanner.loading")}
+        </span>
       </div>
     );
   }
 
   const todayChecked = todayPlan.tasks.filter((t) => t.checked).length;
   const finishLabel = stats.expectedFinishDate
-    ? stats.expectedFinishDate.toLocaleDateString(locale === "ar" ? "ar" : undefined, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
+    ? stats.expectedFinishDate.toLocaleDateString(
+        locale === "ar" ? "ar" : undefined,
+        {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        },
+      )
     : t("coursePlanner.setSchedule");
 
-  const progressPercent = stats.videosTotal > 0
-    ? Math.round((stats.completedCount / stats.videosTotal) * 100)
-    : 0;
+  const progressPercent =
+    stats.videosTotal > 0
+      ? Math.round((stats.completedCount / stats.videosTotal) * 100)
+      : 0;
 
   return (
     <div className="mb-6 rounded-2xl border border-surface-200/50 bg-surface-50/30 overflow-hidden shadow-sm">
@@ -175,11 +182,12 @@ export default function CourseStudyPlanner({
         <div className="absolute top-4 right-4">
           {saveMutation.isPending && (
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-200/80 text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
-              <Loader2 size={12} className="animate-spin" /> {t("coursePlanner.saving")}
+              <Loader2 size={12} className="animate-spin" />{" "}
+              {t("coursePlanner.saving")}
             </span>
           )}
         </div>
-        
+
         <div className="flex items-center gap-2 mb-2">
           <span className="flex items-center justify-center w-6 h-6 rounded-md bg-emerald-500/20 text-emerald-400">
             <Target size={14} />
@@ -188,8 +196,10 @@ export default function CourseStudyPlanner({
             {t("coursePlanner.badge")}
           </span>
         </div>
-        
-        <h3 className="text-2xl font-black text-white tracking-tight mb-1">{courseTitle}</h3>
+
+        <h3 className="text-2xl font-black text-white tracking-tight mb-1">
+          {courseTitle}
+        </h3>
         <p className="text-sm text-gray-400 max-w-2xl leading-relaxed mb-5">
           {t("coursePlanner.subtitle")}
         </p>
@@ -197,11 +207,15 @@ export default function CourseStudyPlanner({
         {/* Master Progress Bar */}
         <div className="max-w-2xl">
           <div className="flex justify-between items-end mb-1.5">
-            <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Overall Progress</span>
-            <span className="text-sm font-bold text-white">{progressPercent}%</span>
+            <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
+              Overall Progress
+            </span>
+            <span className="text-sm font-bold text-white">
+              {progressPercent}%
+            </span>
           </div>
           <div className="h-2 w-full bg-surface-300/50 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-emerald-500 rounded-full transition-all duration-500 ease-out relative"
               style={{ width: `${progressPercent}%` }}
             >
@@ -212,10 +226,9 @@ export default function CourseStudyPlanner({
       </div>
 
       <div className="p-2 sm:p-4 space-y-2">
-        
         {/* Settings Collapsible */}
         <div className="rounded-xl border border-surface-200/50 bg-surface-100/30 overflow-hidden transition-all duration-200">
-          <button 
+          <button
             onClick={() => setShowSettings(!showSettings)}
             className="w-full flex items-center justify-between p-4 hover:bg-surface-200/30 transition-colors focus:outline-none"
           >
@@ -223,11 +236,17 @@ export default function CourseStudyPlanner({
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-200/80 text-gray-400">
                 <Settings2 size={16} />
               </div>
-              <span className="font-semibold text-white text-sm">{t("coursePlanner.dailyTime")} & {t("coursePlanner.studyDays")}</span>
+              <span className="font-semibold text-white text-sm">
+                {t("coursePlanner.dailyTime")} & {t("coursePlanner.studyDays")}
+              </span>
             </div>
-            {showSettings ? <ChevronUp size={18} className="text-gray-500" /> : <ChevronDown size={18} className="text-gray-500" />}
+            {showSettings ? (
+              <ChevronUp size={18} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={18} className="text-gray-500" />
+            )}
           </button>
-          
+
           {showSettings && (
             <div className="p-4 pt-0 border-t border-surface-200/30 animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
@@ -237,22 +256,30 @@ export default function CourseStudyPlanner({
                   </p>
                   <div className="flex items-center gap-3">
                     <label className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase">{t("coursePlanner.hours")}</span>
+                      <span className="text-[11px] font-semibold text-gray-400 uppercase">
+                        {t("coursePlanner.hours")}
+                      </span>
                       <input
                         type="number"
                         min={0}
                         max={12}
                         value={hours}
                         onChange={(e) =>
-                          setHours(Math.max(0, parseInt(e.target.value, 10) || 0))
+                          setHours(
+                            Math.max(0, parseInt(e.target.value, 10) || 0),
+                          )
                         }
                         onBlur={() => applyDailyTime(hours, minutes)}
                         className="w-24 rounded-lg border border-surface-300 bg-surface-200/50 px-3 py-2 text-sm font-semibold text-white focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all"
                       />
                     </label>
-                    <span className="text-xl text-gray-500 font-light mt-5">:</span>
+                    <span className="text-xl text-gray-500 font-light mt-5">
+                      :
+                    </span>
                     <label className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase">{t("coursePlanner.minutes")}</span>
+                      <span className="text-[11px] font-semibold text-gray-400 uppercase">
+                        {t("coursePlanner.minutes")}
+                      </span>
                       <input
                         type="number"
                         min={0}
@@ -260,7 +287,10 @@ export default function CourseStudyPlanner({
                         value={minutes}
                         onChange={(e) =>
                           setMinutes(
-                            Math.min(59, Math.max(0, parseInt(e.target.value, 10) || 0)),
+                            Math.min(
+                              59,
+                              Math.max(0, parseInt(e.target.value, 10) || 0),
+                            ),
                           )
                         }
                         onBlur={() => applyDailyTime(hours, minutes)}
@@ -281,7 +311,9 @@ export default function CourseStudyPlanner({
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {WEEKDAY_OPTIONS.map(({ value }) => {
-                      const label = t(`coursePlanner.weekdays.${WEEKDAY_I18N[value]}`);
+                      const label = t(
+                        `coursePlanner.weekdays.${WEEKDAY_I18N[value]}`,
+                      );
                       const active = plan.studyDays.includes(value);
                       return (
                         <button
@@ -307,7 +339,7 @@ export default function CourseStudyPlanner({
 
         {/* Stats Collapsible */}
         <div className="rounded-xl border border-surface-200/50 bg-surface-100/30 overflow-hidden transition-all duration-200">
-          <button 
+          <button
             onClick={() => setShowStats(!showStats)}
             className="w-full flex items-center justify-between p-4 hover:bg-surface-200/30 transition-colors focus:outline-none"
           >
@@ -315,11 +347,17 @@ export default function CourseStudyPlanner({
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-200/80 text-sky-400">
                 <BarChart3 size={16} />
               </div>
-              <span className="font-semibold text-white text-sm">Course Statistics</span>
+              <span className="font-semibold text-white text-sm">
+                Course Statistics
+              </span>
             </div>
-            {showStats ? <ChevronUp size={18} className="text-gray-500" /> : <ChevronDown size={18} className="text-gray-500" />}
+            {showStats ? (
+              <ChevronUp size={18} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={18} className="text-gray-500" />
+            )}
           </button>
-          
+
           {showStats && (
             <div className="p-4 pt-0 border-t border-surface-200/30 animate-fade-in">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
@@ -327,7 +365,9 @@ export default function CourseStudyPlanner({
                   icon={<Clock size={16} className="text-brand" />}
                   label={t("coursePlanner.remaining")}
                   value={formatDuration(stats.totalRemainingSeconds)}
-                  sub={t("coursePlanner.videosLeft", { count: stats.videosRemaining })}
+                  sub={t("coursePlanner.videosLeft", {
+                    count: stats.videosRemaining,
+                  })}
                 />
                 <StatCard
                   icon={<Calendar size={16} className="text-emerald-400" />}
@@ -342,7 +382,9 @@ export default function CourseStudyPlanner({
                   icon={<CalendarCheck size={16} className="text-sky-400" />}
                   label={t("coursePlanner.progress")}
                   value={`${stats.completedCount} / ${stats.videosTotal}`}
-                  sub={t("coursePlanner.percentComplete", { percent: progressPercent })}
+                  sub={t("coursePlanner.percentComplete", {
+                    percent: progressPercent,
+                  })}
                 />
                 <StatCard
                   icon={<Target size={16} className="text-amber-400" />}
@@ -368,7 +410,7 @@ export default function CourseStudyPlanner({
 
         {/* Today's Plan Collapsible */}
         <div className="rounded-xl border border-surface-200/50 bg-surface-100/30 overflow-hidden transition-all duration-200">
-          <button 
+          <button
             onClick={() => setShowToday(!showToday)}
             className="w-full flex items-center justify-between p-4 hover:bg-surface-200/30 transition-colors focus:outline-none"
           >
@@ -396,10 +438,14 @@ export default function CourseStudyPlanner({
                   })}
                 </span>
               )}
-              {showToday ? <ChevronUp size={18} className="text-gray-500" /> : <ChevronDown size={18} className="text-gray-500" />}
+              {showToday ? (
+                <ChevronUp size={18} className="text-gray-500" />
+              ) : (
+                <ChevronDown size={18} className="text-gray-500" />
+              )}
             </div>
           </button>
-          
+
           {showToday && (
             <div className="border-t border-surface-200/30 bg-surface-50/50 animate-fade-in">
               {!stats.isStudyDayToday ? (
@@ -407,7 +453,9 @@ export default function CourseStudyPlanner({
                   <div className="w-12 h-12 rounded-full bg-surface-200/50 flex items-center justify-center mb-3 text-gray-400">
                     <Calendar size={20} />
                   </div>
-                  <p className="text-sm font-semibold text-gray-300 mb-1">Rest Day</p>
+                  <p className="text-sm font-semibold text-gray-300 mb-1">
+                    Rest Day
+                  </p>
                   <p className="text-xs text-gray-500 max-w-sm">
                     {t("coursePlanner.restDayBody")}
                   </p>
@@ -417,7 +465,9 @@ export default function CourseStudyPlanner({
                   <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3 text-emerald-400">
                     <CheckCircle2 size={24} />
                   </div>
-                  <p className="text-sm font-semibold text-emerald-400 mb-1">All Caught Up!</p>
+                  <p className="text-sm font-semibold text-emerald-400 mb-1">
+                    All Caught Up!
+                  </p>
                   <p className="text-xs text-emerald-500/70 max-w-sm">
                     {t("coursePlanner.allCaughtUp")}
                   </p>
@@ -428,8 +478,8 @@ export default function CourseStudyPlanner({
                     <li
                       key={task.video.id}
                       className={`flex items-center gap-4 px-4 py-3 m-1 rounded-xl transition-all ${
-                        task.checked 
-                          ? "bg-surface-200/30 opacity-70" 
+                        task.checked
+                          ? "bg-surface-200/30 opacity-70"
                           : "bg-surface-100 hover:bg-surface-200/70 shadow-sm border border-surface-200/40"
                       }`}
                     >
@@ -437,7 +487,9 @@ export default function CourseStudyPlanner({
                         type="button"
                         onClick={() => toggleTask(task.video.id, !task.checked)}
                         className={`shrink-0 p-1 rounded-full transition-all hover:scale-110 active:scale-95 ${
-                          task.checked ? "text-emerald-400" : "text-gray-400 hover:text-emerald-400"
+                          task.checked
+                            ? "text-emerald-400"
+                            : "text-gray-400 hover:text-emerald-400"
                         }`}
                         aria-label={
                           task.checked
@@ -446,7 +498,10 @@ export default function CourseStudyPlanner({
                         }
                       >
                         {task.checked ? (
-                          <CheckCircle2 size={24} className="fill-emerald-500/20" />
+                          <CheckCircle2
+                            size={24}
+                            className="fill-emerald-500/20"
+                          />
                         ) : (
                           <Circle size={24} />
                         )}
@@ -454,7 +509,9 @@ export default function CourseStudyPlanner({
                       <div className="min-w-0 flex-1">
                         <p
                           className={`text-sm font-bold leading-snug truncate ${
-                            task.checked ? "text-gray-500 line-through" : "text-gray-200"
+                            task.checked
+                              ? "text-gray-500 line-through"
+                              : "text-gray-200"
                           }`}
                         >
                           {task.video.title}
@@ -463,13 +520,16 @@ export default function CourseStudyPlanner({
                           <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-300/40 text-gray-400">
                             {formatDuration(task.remainingSeconds)} left
                           </span>
-                          {task.video.watchProgress > 0.02 && task.video.watchProgress < 0.98 && (
-                            <span className="text-[11px] font-medium text-brand">
-                              {t("coursePlanner.started", {
-                                percent: Math.round(task.video.watchProgress * 100),
-                              })}
-                            </span>
-                          )}
+                          {task.video.watchProgress > 0.02 &&
+                            task.video.watchProgress < 0.98 && (
+                              <span className="text-[11px] font-medium text-brand">
+                                {t("coursePlanner.started", {
+                                  percent: Math.round(
+                                    task.video.watchProgress * 100,
+                                  ),
+                                })}
+                              </span>
+                            )}
                         </div>
                       </div>
                       <Link
@@ -505,15 +565,17 @@ function StatCard({
   return (
     <div className="rounded-xl bg-surface-200/40 p-4 border border-surface-200/50 shadow-sm hover:bg-surface-200/60 transition-colors">
       <div className="flex items-center gap-2 text-gray-400 mb-2">
-        <div className="p-1.5 rounded-lg bg-surface-300/30">
-          {icon}
-        </div>
+        <div className="p-1.5 rounded-lg bg-surface-300/30">{icon}</div>
         <span className="text-[10px] font-bold uppercase tracking-wider">
           {label}
         </span>
       </div>
-      <p className="text-lg font-black text-white leading-none tracking-tight mb-1.5">{value}</p>
-      <p className="text-[11px] font-medium text-gray-500 leading-snug">{sub}</p>
+      <p className="text-lg font-black text-white leading-none tracking-tight mb-1.5">
+        {value}
+      </p>
+      <p className="text-[11px] font-medium text-gray-500 leading-snug">
+        {sub}
+      </p>
     </div>
   );
 }
