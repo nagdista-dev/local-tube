@@ -1,83 +1,43 @@
-# ─── Dependency Directories ──────────────────────────────────────────────────
+# Node dependencies
 node_modules/
-**/node_modules/
-jspm_packages/
-web_modules/
+client/node_modules/
 
-# ─── Build and Production Output ─────────────────────────────────────────────
+# Build output
 dist/
-**/dist/
 build/
-**/build/
 out/
-**/out/
 .next/
 .nuxt/
-.cache/
+.vite/
 
-# ─── Environment Files & Secrets ─────────────────────────────────────────────
+# Vite, IDE, OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Environment files and secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
 *.env
-*.env.local
 
-# ─── SQLite Local Databases & Lock Files ─────────────────────────────────────
+# Database files
 *.db
 *.sqlite
 *.sqlite3
-*.db-journal
-*.db-shm
-*.db-wal
-
-# ─── Local Scanner Caches & Thumbnail Assets ─────────────────────────────────
 cache/
+cache/**
+
+# Thumbnails and media caches
 thumbnails/
+cache/thumbnails/
 
-# ─── System Files ────────────────────────────────────────────────────────────
-.DS_Store
-.DS_Store?
-._*
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# ─── Debug and System Logs ───────────────────────────────────────────────────
+# Logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-# ─── IDE and Editor Configurations ───────────────────────────────────────────
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.swp
-*.swo
-*.swn
-.project
-.classpath
-.settings/
-.vscode-test/
-
-# ─── Diagnostic and Testing Reports ──────────────────────────────────────────
-.eslintcache
-.stylelintcache
+# Coverage
 coverage/
-**/coverage/
-.nyc_output
-.tap/
-.rpt2_cache/
 
-# ─── Local Development Files ──────────────────────────────────────────────────
-.nvmrc.local
-# GitHub: Do not commit secrets
-.env
-.env.*
+# Misc
+*.log
