@@ -2,7 +2,6 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { Video, Category } from '../types';
-import { getLibraryLocation } from './libraryConfig';
 
 // ─── Setup ─────────────────────────────────────────────────────────────────
 
@@ -101,25 +100,6 @@ function folderPathMatchesExpression(alias = 'v'): string {
   )`;
 }
 
-// ─── Dynamic sort helper ───────────────────────────────────────────────────
-
-/** Returns a SQL ORDER BY clause for the given sort key */
-function buildOrderBy(sort: string): string {
-  switch (sort) {
-    case 'name':          return 'v.filename ASC';
-    case 'name-desc':     return 'v.filename DESC';
-    case 'date':          return 'v.addedAt DESC';
-    case 'date-asc':      return 'v.addedAt ASC';
-    case 'duration':      return 'v.duration DESC';
-    case 'duration-asc':  return 'v.duration ASC';
-    case 'size':          return 'v.fileSize DESC';
-    case 'size-asc':      return 'v.fileSize ASC';
-    case 'progress':      return 'COALESCE(wh.timestamp, 0) DESC';
-    case 'progress-asc':  return 'COALESCE(wh.timestamp, 0) ASC';
-    default:              return 'v.addedAt DESC';
-  }
-}
-
 function createCategoryNode(name: string, folderPath: string, isCourse: boolean): Category {
   return {
     name,
@@ -153,8 +133,6 @@ const stmts = {
       lastScanned = excluded.lastScanned
   `),
 
-  // selectAll and selectByCategory are now built dynamically per-sort (see findAll/findByCategory)
-  // Static fallback (date-desc) kept for any internal use
   selectAll: db.prepare(`
     SELECT v.*, wh.timestamp AS watchTimestamp, wh.updatedAt AS lastWatched
     FROM videos v
@@ -244,9 +222,6 @@ const stmts = {
   `),
   unmarkCourse: db.prepare('DELETE FROM courses WHERE category = ?'),
   isCourse: db.prepare('SELECT category FROM courses WHERE category = ?'),
-  clearVideos: db.prepare('DELETE FROM videos'),
-  clearHistory: db.prepare('DELETE FROM watch_history'),
-  clearCourses: db.prepare('DELETE FROM courses'),
 };
 
 // ─── Public API ────────────────────────────────────────────────────────────
@@ -278,16 +253,8 @@ export const videoDb = {
     insert(videos);
   },
 
-  findAll(limit = 60, offset = 0, sort = 'date'): Video[] {
-    const orderBy = buildOrderBy(sort);
-    const sql = `
-      SELECT v.*, wh.timestamp AS watchTimestamp, wh.updatedAt AS lastWatched
-      FROM videos v
-      LEFT JOIN watch_history wh ON v.id = wh.videoId
-      ORDER BY ${orderBy}
-      LIMIT @limit OFFSET @offset
-    `;
-    return (db.prepare(sql).all({ limit, offset }) as Record<string, unknown>[]).map(mapRow);
+  findAll(limit = 60, offset = 0): Video[] {
+    return (stmts.selectAll.all({ limit, offset }) as Record<string, unknown>[]).map(mapRow);
   },
 
   findById(id: string): Video | null {
@@ -295,17 +262,8 @@ export const videoDb = {
     return row ? mapRow(row) : null;
   },
 
-  findByCategory(category: string, limit = 60, offset = 0, sort = 'date'): Video[] {
-    const orderBy = buildOrderBy(sort);
-    const sql = `
-      SELECT v.*, wh.timestamp AS watchTimestamp, wh.updatedAt AS lastWatched
-      FROM videos v
-      LEFT JOIN watch_history wh ON v.id = wh.videoId
-      WHERE ${folderPathMatchesExpression('v')}
-      ORDER BY ${orderBy}
-      LIMIT @limit OFFSET @offset
-    `;
-    return (db.prepare(sql).all({ folderPath: category, limit, offset }) as Record<string, unknown>[]).map(mapRow);
+  findByCategory(category: string, limit = 60, offset = 0): Video[] {
+    return (stmts.selectByCategory.all({ folderPath: category, limit, offset }) as Record<string, unknown>[]).map(mapRow);
   },
 
   search(query: string, limit = 60): Video[] {
@@ -316,31 +274,19 @@ export const videoDb = {
     const courseRows = stmts.courseRows.all() as { category: string }[];
     const coursePaths = new Set(courseRows.map(row => row.category));
     const nodes = new Map<string, Category>();
-
-    // Use the library root folder's basename instead of the literal 'Uncategorized' label
-    const libraryRootName = (() => {
-      try {
-        const loc = getLibraryLocation();
-        return loc ? path.basename(loc) : 'Root';
-      } catch { return 'Root'; }
-    })();
-
-    const root = createCategoryNode(libraryRootName, '', false);
-    nodes.set('', root);
+    const roots: Category[] = [];
 
     const ensureNode = (folderPath: string): Category => {
       const existing = nodes.get(folderPath);
       if (existing) return existing;
 
       const parts = folderPath.split('/').filter(Boolean);
-      // Use the real library folder name for the 'Uncategorized' bucket
-      const rawName = parts.at(-1) || folderPath || libraryRootName;
-      const name = (rawName === 'Uncategorized') ? libraryRootName : rawName;
+      const name = parts.at(-1) || folderPath || 'Uncategorized';
       const node = createCategoryNode(name, folderPath, coursePaths.has(folderPath));
       nodes.set(folderPath, node);
 
-      if (folderPath !== 'Uncategorized' && parts.length <= 1) {
-        root.subcategories.push(node);
+      if (folderPath === 'Uncategorized' || parts.length <= 1) {
+        roots.push(node);
       } else {
         const parentPath = parts.slice(0, -1).join('/');
         ensureNode(parentPath).subcategories.push(node);
@@ -356,16 +302,13 @@ export const videoDb = {
     }[];
 
     for (const row of rows) {
-      const rawFolderParts = folderPartsForVideo(row.relativePath);
-      const folderParts = rawFolderParts.length === 1 && rawFolderParts[0] === 'Uncategorized'
-        ? []
-        : rawFolderParts;
+      const folderParts = folderPartsForVideo(row.relativePath);
       const duration = row.duration || 0;
       const watched = duration > 0 ? Math.min(row.watchTimestamp || 0, duration) : 0;
       const complete = duration > 0 && (row.watchTimestamp || 0) >= duration * 0.98 ? 1 : 0;
 
-      for (let i = -1; i < folderParts.length; i++) {
-        const folderPath = i === -1 ? '' : folderParts.slice(0, i + 1).join('/');
+      for (let i = 0; i < folderParts.length; i++) {
+        const folderPath = folderParts.slice(0, i + 1).join('/');
         const node = ensureNode(folderPath);
         node.count++;
         node.totalDuration = (node.totalDuration || 0) + duration;
@@ -380,8 +323,9 @@ export const videoDb = {
       node.subcategories.forEach(finalize);
     };
 
-    finalize(root);
-    return root.count > 0 ? [root] : [];
+    roots.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    roots.forEach(finalize);
+    return roots;
   },
 
   getRecentlyWatched(limit = 12): Video[] {
@@ -442,16 +386,6 @@ export const videoDb = {
 
   isCourse(category: string): boolean {
     return Boolean(stmts.isCourse.get(category));
-  },
-
-  /** Wipe the entire library: videos, watch history, and course flags */
-  clearAll() {
-    const wipe = db.transaction(() => {
-      stmts.clearHistory.run();
-      stmts.clearCourses.run();
-      stmts.clearVideos.run();
-    });
-    wipe();
   },
 };
 
