@@ -215,7 +215,7 @@ function CoursePlayerSidebar({
   completedCount: number;
   remainingDuration: number;
   onSelect: (id: string) => void;
-  onToggleWatched: (video: Video) => void;
+  onToggleWatched?: (video: Video) => void;
   embedded?: boolean;
 }) {
   return (
@@ -303,7 +303,7 @@ function CoursePlayerSidebar({
                   )}
                 </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -1075,6 +1075,20 @@ export default function Player() {
         queryClient.invalidateQueries({ queryKey: ["videos"] });
       })
       .catch(() => {});
+  };
+
+  // Toggle watched state for lessons in a course playlist
+  const toggleLessonWatched = async (lesson: Video) => {
+    if (!lesson || !lesson.id) return;
+    try {
+      const nextFinished = !(lesson.watchProgress >= 0.98);
+      await api.videos.markFinished(lesson.id, nextFinished);
+      queryClient.invalidateQueries({ queryKey: ["course-videos", activeCourse?.path] });
+      queryClient.invalidateQueries({ queryKey: ["video", lesson.id] });
+      queryClient.invalidateQueries({ queryKey: ["videos"] });
+    } catch {
+      /* silent */
+    }
   };
 
   if (isLoading || !video) {
