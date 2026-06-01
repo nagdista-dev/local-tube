@@ -1,4 +1,4 @@
-import { Video, Category, VideoListResponse, ScanStatus, DownloadJob } from '../types';
+import { Video, Category, VideoListResponse, ScanStatus, DownloadJob, LibraryLocation, DirectoryListing } from '../types';
 
 const BASE = '/api';
 
@@ -44,6 +44,13 @@ export const api = {
       return request(`${BASE}/videos/categories`);
     },
 
+    setCourse(folderPath: string, isCourse: boolean): Promise<{ folderPath: string; isCourse: boolean }> {
+      return request(`${BASE}/videos/categories/course`, {
+        method: 'POST',
+        body: JSON.stringify({ folderPath, isCourse }),
+      });
+    },
+
     history(limit = 12): Promise<Video[]> {
       return request(`${BASE}/videos/history?limit=${limit}`);
     },
@@ -73,6 +80,13 @@ export const api = {
       });
     },
 
+    markFinished(id: string, finished: boolean): Promise<{ ok: boolean; finished: boolean }> {
+      return request(`${BASE}/videos/${id}/finished`, {
+        method: 'POST',
+        body: JSON.stringify({ finished }),
+      });
+    },
+
     addExternal(url: string, title?: string, category?: string): Promise<{ videoId: string }> {
       return request(`${BASE}/videos/external`, {
         method: 'POST',
@@ -87,6 +101,20 @@ export const api = {
     },
     status(): Promise<ScanStatus> {
       return request(`${BASE}/scan/status`);
+    },
+    location(): Promise<LibraryLocation> {
+      return request(`${BASE}/scan/location`);
+    },
+    directories(path?: string): Promise<DirectoryListing> {
+      const qs = new URLSearchParams();
+      if (path) qs.set('path', path);
+      return request(`${BASE}/scan/directories?${qs}`);
+    },
+    saveLocation(videosDir: string): Promise<LibraryLocation> {
+      return request(`${BASE}/scan/location`, {
+        method: 'POST',
+        body: JSON.stringify({ videosDir }),
+      });
     },
   },
 

@@ -46,3 +46,12 @@ export function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
   return str.slice(0, maxLen - 1) + '…';
 }
+
+/**
+ * Returns true if the string contains Arabic characters.
+ * Covers the core Arabic block (U+0600–U+06FF) plus Arabic Supplement,
+ * Extended-A, Presentation Forms A/B, and Mathematical Alphabetic Symbols.
+ */
+export function isArabic(str: string): boolean {
+  return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str);
+}

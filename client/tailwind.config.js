@@ -26,7 +26,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "Tajawal", "system-ui", "sans-serif"],
+        arabic: ["Tajawal", "system-ui", "sans-serif"],
       },
       animation: {
         shimmer: "shimmer 1.6s infinite linear",

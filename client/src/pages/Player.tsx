@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   useParams,
-  Link,
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   Heart,
   Play,
   Pause,
@@ -20,11 +18,18 @@ import {
   ChevronLeft,
   Timer,
   ChevronsRight,
-  Trash2,
-  Bookmark,
+  RectangleHorizontal,
+  PictureInPicture2,
+  CheckCircle2,
+  BookOpen,
+  ListVideo,
+  Circle,
 } from "lucide-react";
 import { api, streamUrl } from "../utils/api";
-import { formatDuration, formatFileSize } from "../utils/format";
+import { formatDuration, formatFileSize, isArabic } from "../utils/format";
+import { Category, Video } from "../types";
+
+type ViewMode = "normal" | "theater" | "mini";
 
 // ─── Progress bar component ───────────────────────────────────────────────
 
@@ -163,9 +168,133 @@ function getYouTubeId(url: string) {
   return match && match[2].length === 11 ? match[2] : null;
 }
 
+function normalizeRelativePath(value: string): string {
+  return value.replace(/\\/g, '/');
+}
+
+function videoBelongsToFolder(video: Video, folderPath: string): boolean {
+  const relativePath = normalizeRelativePath(video.relativePath);
+  return (
+    relativePath === folderPath ||
+    relativePath.startsWith(`${folderPath}/`) ||
+    (folderPath === 'Uncategorized' && !relativePath.includes('/'))
+  );
+}
+
+function findCourseForVideo(categories: Category[], video: Video): Category | undefined {
+  const matches: Category[] = [];
+  const visit = (category: Category) => {
+    if (category.isCourse && videoBelongsToFolder(video, category.path)) {
+      matches.push(category);
+    }
+    category.subcategories.forEach(visit);
+  };
+
+  categories.forEach(visit);
+  return matches.sort((a, b) => b.path.length - a.path.length)[0];
+}
+
+function CoursePlayerSidebar({
+  currentVideoId,
+  videos,
+  courseTitle,
+  courseProgress,
+  completedCount,
+  remainingDuration,
+  onSelect,
+}: {
+  currentVideoId: string;
+  videos: Video[];
+  courseTitle: string;
+  courseProgress: number;
+  completedCount: number;
+  remainingDuration: number;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <aside className="rounded-[1.75rem] border border-surface-200/70 bg-surface-100/80 shadow-2xl shadow-black/20 backdrop-blur-xl overflow-hidden">
+      <div className="p-5 border-b border-surface-200/70 bg-gradient-to-br from-surface-50 via-surface-100 to-surface-200">
+        <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold uppercase tracking-widest mb-2">
+          <BookOpen size={15} />
+          Course Playlist
+        </div>
+        <h2 className="text-lg font-bold text-white leading-tight">{courseTitle}</h2>
+        <p className="text-xs text-gray-400 mt-2">
+          {completedCount} of {videos.length} lessons finished
+          {remainingDuration > 0 ? ` · ${formatDuration(remainingDuration)} left` : " · Complete"}
+        </p>
+        <div className="mt-4">
+          <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+            <span>{Math.round(courseProgress * 100)}% complete</span>
+            <span>{formatDuration(videos.reduce((sum, v) => sum + Math.max(v.duration * Math.min(v.watchProgress, 1), 0), 0))} watched</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-surface-200 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-400 transition-all"
+              style={{ width: `${courseProgress * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="max-h-[52vh] lg:max-h-[calc(100vh-19rem)] overflow-y-auto p-2">
+        {videos.map((lesson, index) => {
+          const active = lesson.id === currentVideoId;
+          const finished = lesson.watchProgress >= 0.98;
+          const progress = Math.max(0, Math.min(lesson.watchProgress, 1));
+
+          return (
+            <button
+              key={lesson.id}
+              onClick={() => onSelect(lesson.id)}
+              className={`w-full text-left rounded-2xl p-3 transition-all mb-1.5 border ${
+                active
+                  ? "bg-brand/15 text-white border-brand/30 shadow-lg shadow-black/20"
+                  : "bg-surface-200/70 text-gray-200 border-transparent hover:bg-surface-200 hover:border-surface-300"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                    finished
+                      ? "bg-emerald-500 text-white"
+                      : active
+                      ? "bg-white/15 text-white"
+                      : "bg-surface-300 text-gray-300"
+                  }`}
+                >
+                  {finished ? <CheckCircle2 size={15} /> : index + 1}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-snug line-clamp-2 ${active ? "text-white" : "text-white"}`}>
+                    {lesson.title}
+                  </p>
+                  <div className={`mt-1 flex items-center gap-2 text-[11px] ${active ? "text-white/65" : "text-gray-400"}`}>
+                    {finished ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                    <span>{finished ? "Finished" : formatDuration(lesson.duration)}</span>
+                  </div>
+                  {!finished && progress > 0.02 && (
+                    <div className={`mt-2 h-1 rounded-full overflow-hidden ${active ? "bg-white/20" : "bg-surface-300"}`}>
+                      <div
+                        className="h-full rounded-full bg-emerald-400"
+                        style={{ width: `${progress * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
 export default function Player() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const externalUrl = searchParams.get("url");
 
@@ -192,6 +321,7 @@ export default function Player() {
           duration: 0,
           fileSize: 0,
           resolution: "HD",
+          addedAt: new Date().toISOString(),
           tags: [] as string[],
           isFavorite: false,
           watchProgress: 0,
@@ -202,6 +332,38 @@ export default function Player() {
 
   const isExternal = video?.path?.startsWith("http");
   const youtubeId = isExternal && video?.path ? getYouTubeId(video.path) : null;
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: api.videos.categories,
+    staleTime: 5 * 60_000,
+    enabled: !!video && id !== "external",
+  });
+
+  const activeCourse = video ? findCourseForVideo(categories, video) : undefined;
+
+  const { data: courseList } = useQuery({
+    queryKey: ["course-videos", activeCourse?.path],
+    queryFn: () =>
+      api.videos.list({
+        category: activeCourse!.path,
+        page: 1,
+        pageSize: 120,
+        sort: "name",
+      }),
+    enabled: !!activeCourse && !!video && id !== "external",
+  });
+
+  const courseVideos = courseList?.videos ?? [];
+  const courseTotalDuration = courseVideos.reduce((sum, lesson) => sum + lesson.duration, 0);
+  const courseWatchedDuration = courseVideos.reduce(
+    (sum, lesson) => sum + Math.max(lesson.duration * Math.min(lesson.watchProgress, 1), 0),
+    0,
+  );
+  const courseProgress =
+    courseTotalDuration > 0 ? Math.min(courseWatchedDuration / courseTotalDuration, 1) : 0;
+  const completedLessons = courseVideos.filter((lesson) => lesson.watchProgress >= 0.98).length;
+  const courseRemainingDuration = Math.max(courseTotalDuration - courseWatchedDuration, 0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -223,8 +385,10 @@ export default function Player() {
   const [speed, setSpeed] = useState(1);
   const [showSpeed, setShowSpeed] = useState(false);
   const [isFav, setIsFav] = useState(false);
+  const [isMarkedFinished, setIsMarkedFinished] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [ytStart, setYtStart] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("normal");
 
   // Sleep timer states
   const [sleepTimeLeft, setSleepTimeLeft] = useState<number | null>(null);
@@ -247,6 +411,7 @@ export default function Player() {
     setBuffered(0);
     setShowSpeed(false);
     setIsFav(false);
+    setIsMarkedFinished(false);
     latestTimeRef.current = 0;
     setSleepTimeLeft(null);
     setShowSleepMenu(false);
@@ -355,105 +520,10 @@ export default function Player() {
     };
   }, [youtubeId, ytStart]);
 
-  // ── Bookmark Notes States ────────────────────────────────────────────────
-
-  interface VideoNote {
-    id: string;
-    timestamp: number;
-    text: string;
-    createdAt: string;
-  }
-  const [notes, setNotes] = useState<VideoNote[]>([]);
-  const [noteText, setNoteText] = useState("");
-
-  // Professional feedback states
-  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const notesKey =
-    video?.id === "external"
-      ? `localtube_notes_ext_${encodeURIComponent(video?.path || "")}`
-      : `localtube_notes_${video?.id || "default"}`;
-
-  // Reset ytStart and feedback on video navigation
+  // Reset ytStart on video navigation
   useEffect(() => {
     setYtStart(null);
-    setToast(null);
-    setLastAddedId(null);
   }, [id]);
-
-  // Load notes on mount/when video changes
-  useEffect(() => {
-    if (!video) return;
-    const saved = localStorage.getItem(notesKey);
-    if (saved) {
-      try {
-        setNotes(JSON.parse(saved));
-      } catch {
-        setNotes([]);
-      }
-    } else {
-      setNotes([]);
-    }
-    setNoteText("");
-  }, [video, notesKey]);
-
-  const saveNotes = (updatedNotes: VideoNote[]) => {
-    setNotes(updatedNotes);
-    localStorage.setItem(notesKey, JSON.stringify(updatedNotes));
-  };
-
-  const handleAddNote = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!noteText.trim()) return;
-
-    const currentTime = videoRef.current
-      ? videoRef.current.currentTime
-      : current;
-    const newNote: VideoNote = {
-      id: Math.random().toString(36).substring(2, 9),
-      timestamp: currentTime,
-      text: noteText.trim(),
-      createdAt: new Date().toISOString(),
-    };
-
-    const updated = [...notes, newNote].sort(
-      (a, b) => a.timestamp - b.timestamp,
-    );
-    saveNotes(updated);
-
-    // Trigger premium visual feedback overlays
-    setLastAddedId(newNote.id);
-    setToast(
-      `Bookmark note saved at ${formatDuration(Math.floor(currentTime))}!`,
-    );
-
-    setTimeout(() => {
-      setLastAddedId(null);
-    }, 2500);
-
-    setTimeout(() => {
-      setToast(null);
-    }, 3000);
-
-    setNoteText("");
-  };
-
-  const handleSeekToNote = (timestamp: number) => {
-    if (
-      youtubeId &&
-      ytPlayerRef.current &&
-      typeof ytPlayerRef.current.seekTo === "function"
-    ) {
-      ytPlayerRef.current.seekTo(timestamp, true);
-    } else if (youtubeId) {
-      setYtStart(Math.floor(timestamp));
-    } else if (videoRef.current) {
-      videoRef.current.currentTime = timestamp;
-      videoRef.current.play().catch(() => {});
-      setPlaying(true);
-    }
-  };
 
   // ── Sleep Timer countdown logic ──────────────────────────────────────────
   useEffect(() => {
@@ -497,6 +567,7 @@ export default function Player() {
       videoEl.currentTime = startAt;
     }
     setIsFav(video.isFavorite);
+    setIsMarkedFinished(video.watchProgress >= 0.98);
     setResumed(true);
   }, [video, resumed]);
 
@@ -736,10 +807,40 @@ export default function Player() {
     setIsFav(isFavorite);
   };
 
+  const currentFinished = isMarkedFinished || ((video?.watchProgress ?? 0) >= 0.98);
+
+  const toggleFinishedState = async () => {
+    if (!id || id === "external") return;
+    const nextFinished = !currentFinished;
+    try {
+      await api.videos.markFinished(id, nextFinished);
+      setIsMarkedFinished(nextFinished);
+      queryClient.invalidateQueries({ queryKey: ["video", id] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["course-videos", activeCourse?.path] });
+      queryClient.invalidateQueries({ queryKey: ["videos"] });
+    } catch {
+      /* silent */
+    }
+  };
+
+  const markCurrentVideoFinished = () => {
+    if (!id || id === "external") return;
+    setIsMarkedFinished(true);
+    api.videos.markFinished(id, true)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["video", id] });
+        queryClient.invalidateQueries({ queryKey: ["categories"] });
+        queryClient.invalidateQueries({ queryKey: ["course-videos", activeCourse?.path] });
+        queryClient.invalidateQueries({ queryKey: ["videos"] });
+      })
+      .catch(() => {});
+  };
+
   if (isLoading || !video) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-        <div className="relative bg-surface-100/40 backdrop-blur-lg border border-surface-200/50 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center gap-6 animate-pulse">
+        <div className="relative bg-surface-100/80 backdrop-blur-lg border border-surface-200/60 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl shadow-black/20 flex flex-col items-center gap-6 animate-pulse">
           <div className="relative w-16 h-16 flex items-center justify-center">
             {/* Spinning glowing brand ring */}
             <div className="absolute inset-0 rounded-full border-4 border-brand/20 border-t-brand animate-spin" />
@@ -759,41 +860,355 @@ export default function Player() {
     );
   }
 
+  // ── View-mode helpers ──────────────────────────────────────────────────
+  const wrapperCls =
+    viewMode === "theater"
+      ? "w-full animate-fade-in"
+      : activeCourse
+      ? "max-w-screen-2xl mx-auto animate-fade-in"
+      : "max-w-6xl mx-auto animate-fade-in";
+
+  const playerVisible = viewMode !== "mini";
+
   return (
-    <div className="max-w-7xl mx-auto animate-fade-in">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left Column: Video Player + Metadata Description Card */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Back button */}
+    <div className={`${wrapperCls} animate-fade-in`}>
+      <div className="rounded-[2rem] bg-surface-50/90 border border-surface-200/60 p-3 sm:p-5 shadow-2xl shadow-black/20">
+        <div className="flex items-center justify-between mb-4 px-1">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors self-start"
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
           >
             <ChevronLeft size={18} />
             Back
           </button>
+          {activeCourse && (
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-emerald-300 bg-surface-100/80 border border-surface-200/60 px-3 py-1.5 rounded-full shadow-sm">
+              <ListVideo size={14} />
+              Course Mode
+            </div>
+          )}
+        </div>
 
-          {/* Player */}
+        <div className="space-y-5">
+          {playerVisible && (
+            <div
+              ref={containerRef}
+              onMouseMove={resetHideTimer}
+              onClick={youtubeId ? undefined : togglePlay}
+              onDoubleClick={youtubeId ? undefined : toggleFullscreen}
+              onMouseDown={youtubeId ? undefined : handlePlayerMouseDown}
+              onTouchStart={youtubeId ? undefined : handlePlayerTouchStart}
+              className={`video-player-container relative bg-slate-950 overflow-hidden group transition-all duration-300 select-none shadow-2xl shadow-black/40 ring-1 ring-surface-200/40 ${
+                fullscreen
+                  ? "w-full h-full rounded-none"
+                  : "rounded-[1.75rem]"
+              } aspect-video ${!youtubeId && showCtrl ? "cursor-pointer" : "cursor-none"}`}
+            >
+              {youtubeId ? (
+                <div className="w-full h-full absolute inset-0 rounded-[1.75rem] overflow-hidden bg-black pointer-events-auto">
+                  <div key={youtubeId} id="yt-player-element" className="w-full h-full" />
+                </div>
+              ) : (
+                <video
+                  ref={videoRef}
+                  src={isExternal ? video.path : streamUrl(video.id)}
+                  className="w-full h-full object-contain"
+                  onPlay={() => setPlaying(true)}
+                  onPause={() => setPlaying(false)}
+                  onTimeUpdate={() => {
+                    const videoEl = videoRef.current;
+                    if (!videoEl) return;
+                    setCurrent(videoEl.currentTime);
+                    latestTimeRef.current = videoEl.currentTime;
+                    if (videoEl.buffered.length) {
+                      setBuffered(videoEl.buffered.end(videoEl.buffered.length - 1));
+                    }
+                  }}
+                  onLoadedMetadata={() => {
+                    const videoEl = videoRef.current;
+                    if (videoEl) {
+                      setDuration(videoEl.duration);
+                      videoEl.playbackRate = speed;
+                    }
+                  }}
+                  onVolumeChange={() => {
+                    const videoEl = videoRef.current;
+                    if (videoEl) {
+                      setVolume(videoEl.volume);
+                      setMuted(videoEl.muted);
+                    }
+                  }}
+                  onEnded={markCurrentVideoFinished}
+                />
+              )}
+
+              {!youtubeId && isSpeedingUp && (
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-fade-in">
+                  <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full text-white text-sm font-semibold shadow-lg">
+                    <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
+                    <span>2× Speed</span>
+                    <ChevronsRight size={16} className="animate-pulse text-brand" />
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={`absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-transparent to-transparent transition-opacity duration-300 ${
+                  !youtubeId && showCtrl ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                }`}
+              >
+                <div
+                  className="px-4 pb-2"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                >
+                  <ProgressBar
+                    current={current}
+                    duration={duration}
+                    buffered={buffered}
+                    onSeek={(t) => {
+                      const videoEl = videoRef.current;
+                      if (videoEl) videoEl.currentTime = t;
+                    }}
+                  />
+                </div>
+
+                <div
+                  className="flex items-center gap-3 px-4 pb-4"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                >
+                  <button onClick={togglePlay} className="hover:text-brand transition-colors text-white">
+                    {playing ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}
+                  </button>
+
+                  <button
+                    onClick={() => { const v = videoRef.current; if (v) v.currentTime += 10; }}
+                    className="hover:text-brand transition-colors text-white"
+                  >
+                    <SkipForward size={20} />
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { const v = videoRef.current; if (v) v.muted = !v.muted; }}
+                      className="hover:text-brand text-white"
+                    >
+                      {muted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                    </button>
+                    <input
+                      type="range" min={0} max={1} step={0.05}
+                      value={muted ? 0 : volume}
+                      onChange={(e) => {
+                        const v = videoRef.current;
+                        if (!v) return;
+                        v.volume = Number(e.target.value);
+                        v.muted = false;
+                      }}
+                      className="w-20 accent-brand"
+                    />
+                  </div>
+
+                  <span className="text-sm text-gray-300 font-mono ml-1">
+                    {formatDuration(current)} / {formatDuration(duration)}
+                  </span>
+
+                  <div className="ml-auto flex items-center gap-3">
+                    <div className="relative" ref={sleepMenuRef}>
+                      <button
+                        onClick={() => setShowSleepMenu((v) => !v)}
+                        className={`flex items-center gap-1 text-sm hover:text-brand transition-colors ${
+                          sleepTimeLeft !== null ? "text-brand font-medium" : "text-gray-300"
+                        }`}
+                        title={sleepTimeLeft !== null ? `Sleep: ${formatSleepTime(sleepTimeLeft)} left` : "Set Sleep Timer"}
+                      >
+                        <Timer size={16} />
+                        {sleepTimeLeft !== null ? formatSleepTime(sleepTimeLeft) : "Timer"}
+                      </button>
+                      {showSleepMenu && (
+                        <div className="absolute bottom-8 right-0 bg-surface-200 rounded-lg overflow-hidden shadow-xl z-10 w-44 p-1 flex flex-col gap-0.5">
+                          {SLEEP_OPTIONS.map((opt) => (
+                            <button
+                              key={opt.label}
+                              onClick={() => { setSleepTimeLeft(opt.value); setShowSleepMenu(false); }}
+                              className={`block w-full px-3 py-1.5 text-xs text-left rounded hover:bg-surface-300 transition-colors ${
+                                (opt.value === null && sleepTimeLeft === null) ||
+                                (opt.value !== null && sleepTimeLeft !== null && Math.abs(sleepTimeLeft - opt.value) < 2)
+                                  ? "text-brand font-medium bg-brand/10" : "text-gray-300"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                          <div className="border-t border-surface-300/50 my-1" />
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const mins = parseInt(customMinutes, 10);
+                              if (!isNaN(mins) && mins > 0) {
+                                setSleepTimeLeft(mins * 60);
+                                setCustomMinutes("");
+                                setShowSleepMenu(false);
+                              }
+                            }}
+                            className="flex items-center gap-1 px-2 py-1"
+                          >
+                            <input
+                              type="number" min="1" placeholder="Custom min"
+                              value={customMinutes}
+                              onChange={(e) => setCustomMinutes(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full bg-surface-300 text-white placeholder-gray-500 rounded px-1.5 py-1 text-xs border border-transparent focus:border-brand focus:outline-none"
+                            />
+                            <button type="submit" className="bg-brand text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-brand/90">Set</button>
+                          </form>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative" ref={speedMenuRef}>
+                      <button
+                        onClick={() => setShowSpeed((v) => !v)}
+                        className="flex items-center gap-1 text-sm hover:text-brand transition-colors text-white"
+                      >
+                        <Settings size={16} /> {speed}×
+                      </button>
+                      {showSpeed && (
+                        <div className="absolute bottom-8 right-0 bg-surface-200 rounded-lg overflow-hidden shadow-xl z-10">
+                          {SPEEDS.map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => { setSpeed(s); const v = videoRef.current; if (v) v.playbackRate = s; setShowSpeed(false); }}
+                              className={`block w-full px-4 py-2 text-sm text-left hover:bg-surface-300 ${
+                                speed === s ? "text-brand font-medium" : "text-gray-300"
+                              }`}
+                            >
+                              {s}×
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => setViewMode("mini")}
+                      className="hover:text-brand transition-colors text-gray-300"
+                      title="Miniplayer"
+                    >
+                      <PictureInPicture2 size={20} />
+                    </button>
+
+                    <button
+                      onClick={() => setViewMode(viewMode === "theater" ? "normal" : "theater")}
+                      className={`hover:text-brand transition-colors ${viewMode === "theater" ? "text-brand" : "text-gray-300"}`}
+                      title="Theater mode"
+                    >
+                      <RectangleHorizontal size={20} />
+                    </button>
+
+                    <button onClick={toggleFullscreen} className="hover:text-brand transition-colors text-white">
+                      {fullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeCourse && viewMode !== "theater" && courseVideos.length > 0 && (
+            <CoursePlayerSidebar
+              currentVideoId={video.id}
+              videos={courseVideos}
+              courseTitle={activeCourse.name}
+              courseProgress={courseProgress}
+              completedCount={completedLessons}
+              remainingDuration={courseRemainingDuration}
+              onSelect={(lessonId) => navigate(`/watch/${lessonId}`)}
+            />
+          )}
+
+          <div className="bg-surface-100/80 backdrop-blur-md border border-surface-200/60 rounded-3xl p-6 shadow-lg shadow-black/20">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h1
+                  className={`text-2xl font-bold text-white mb-3 leading-snug ${
+                    isArabic(video.title) ? "font-arabic text-right" : ""
+                  }`}
+                  dir={isArabic(video.title) ? "rtl" : undefined}
+                >
+                  {video.title}
+                </h1>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
+                  <span className="px-2.5 py-1 bg-surface-200 text-white rounded-lg text-xs font-medium">{video.category}</span>
+                  {video.subcategory && (
+                    <span className="px-2.5 py-1 bg-surface-200 text-white rounded-lg text-xs font-medium">{video.subcategory}</span>
+                  )}
+                  {video.duration > 0 && <span className="text-gray-400 text-xs">{formatDuration(video.duration)}</span>}
+                  {video.fileSize > 0 && <span className="text-gray-400 text-xs">{formatFileSize(video.fileSize)}</span>}
+                  {video.resolution && <span className="text-gray-400 text-xs">{video.resolution}</span>}
+                </div>
+                {video.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {video.tags.map((tag) => (
+                      <span key={tag} className="px-2 py-0.5 bg-surface-200 text-gray-300 text-xs rounded-full">#{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 shrink-0">
+                {id !== "external" && (
+                  <button
+                    onClick={toggleFav}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
+                      isFav
+                        ? "border-brand text-brand bg-brand/10"
+                        : "border-surface-300 text-gray-300 hover:border-brand hover:text-brand"
+                    }`}
+                  >
+                    <Heart size={18} className={isFav ? "fill-brand" : ""} />
+                    {isFav ? "Favorited" : "Favorite"}
+                  </button>
+                )}
+
+                {id !== "external" && activeCourse && (
+                  <button
+                    onClick={toggleFinishedState}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
+                      currentFinished
+                        ? "border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
+                        : "border-surface-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-300"
+                    }`}
+                  >
+                    {currentFinished ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                    {currentFinished ? "Mark Unfinished" : "Mark Finished"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Floating Miniplayer ────────────────────────────────────── */}
+      {viewMode === "mini" && (
+        <div
+          className="fixed bottom-6 right-6 z-50 rounded-2xl overflow-hidden shadow-2xl shadow-black/60 border border-white/10 animate-fade-in"
+          style={{ width: 384, aspectRatio: "16/9" }}
+        >
           <div
             ref={containerRef}
             onMouseMove={resetHideTimer}
             onClick={youtubeId ? undefined : togglePlay}
-            onDoubleClick={youtubeId ? undefined : toggleFullscreen}
             onMouseDown={youtubeId ? undefined : handlePlayerMouseDown}
             onTouchStart={youtubeId ? undefined : handlePlayerTouchStart}
-            className={`relative bg-black dark:bg-black overflow-hidden group transition-all duration-300 select-none ${
-              fullscreen
-                ? "w-full h-full rounded-none"
-                : "aspect-video rounded-xl"
-            } ${!youtubeId && showCtrl ? "cursor-pointer" : "cursor-none"}`}
+            className="video-player-container relative w-full h-full bg-black select-none group cursor-pointer"
           >
             {youtubeId ? (
-              <div className="w-full h-full absolute inset-0 rounded-xl overflow-hidden bg-black dark:bg-black pointer-events-auto">
-                <div
-                  key={youtubeId}
-                  id="yt-player-element"
-                  className="w-full h-full"
-                />
+              <div className="w-full h-full absolute inset-0 pointer-events-auto">
+                <div key={youtubeId} id="yt-player-element" className="w-full h-full" />
               </div>
             ) : (
               <video
@@ -807,435 +1222,49 @@ export default function Player() {
                   if (!videoEl) return;
                   setCurrent(videoEl.currentTime);
                   latestTimeRef.current = videoEl.currentTime;
-                  if (videoEl.buffered.length) {
-                    setBuffered(
-                      videoEl.buffered.end(videoEl.buffered.length - 1),
-                    );
-                  }
+                  if (videoEl.buffered.length) setBuffered(videoEl.buffered.end(videoEl.buffered.length - 1));
                 }}
                 onLoadedMetadata={() => {
                   const videoEl = videoRef.current;
-                  if (videoEl) {
-                    setDuration(videoEl.duration);
-                    videoEl.playbackRate = speed;
-                  }
+                  if (videoEl) { setDuration(videoEl.duration); videoEl.playbackRate = speed; }
                 }}
                 onVolumeChange={() => {
                   const videoEl = videoRef.current;
-                  if (videoEl) {
-                    setVolume(videoEl.volume);
-                    setMuted(videoEl.muted);
-                  }
+                  if (videoEl) { setVolume(videoEl.volume); setMuted(videoEl.muted); }
                 }}
-                onEnded={() => {
-                  if (id) api.videos.saveProgress(id, 0).catch(() => {});
-                }}
+                onEnded={markCurrentVideoFinished}
               />
             )}
 
-            {/* Speed-up Indicator overlay */}
-            {!youtubeId && isSpeedingUp && (
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-fade-in">
-                <div className="flex items-center gap-2 bg-black/60 dark:bg-black/60 backdrop-blur-md border border-white/10 dark:border-white/10 px-4 py-2 rounded-full text-white dark:text-white text-sm font-semibold shadow-lg">
-                  <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
-                  <span>2× Speed</span>
-                  <ChevronsRight
-                    size={16}
-                    className="animate-pulse text-brand"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Controls overlay */}
+            {/* Mini controls overlay */}
             <div
-              className={`absolute inset-0 flex flex-col justify-end bg-gradient-to-t
-                from-black/90 via-transparent to-transparent
-                transition-opacity duration-300 ${
-                  !youtubeId && showCtrl
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
+              className={`absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-200 ${
+                showCtrl ? "opacity-100" : "opacity-0"
+              }`}
+              onClick={(e) => e.stopPropagation()}
             >
-              {/* Progress */}
-              <div
-                className="px-4 pb-2"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-              >
+              <div className="px-3 pb-1.5">
                 <ProgressBar
-                  current={current}
-                  duration={duration}
-                  buffered={buffered}
-                  onSeek={(t) => {
-                    const videoEl = videoRef.current;
-                    if (videoEl) videoEl.currentTime = t;
-                  }}
+                  current={current} duration={duration} buffered={buffered}
+                  onSeek={(t) => { const v = videoRef.current; if (v) v.currentTime = t; }}
                 />
               </div>
-
-              {/* Buttons row */}
-              <div
-                className="flex items-center gap-3 px-4 pb-4"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-              >
-                <button
-                  onClick={togglePlay}
-                  className="hover:text-brand transition-colors"
-                >
-                  {playing ? (
-                    <Pause size={22} fill="currentColor" />
-                  ) : (
-                    <Play size={22} fill="currentColor" />
-                  )}
+              <div className="flex items-center gap-2 px-3 pb-2.5">
+                <button onClick={togglePlay} className="hover:text-brand transition-colors">
+                  {playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
                 </button>
-
-                <button
-                  onClick={() => {
-                    const videoEl = videoRef.current;
-                    if (videoEl) videoEl.currentTime += 10;
-                  }}
-                  className="hover:text-brand transition-colors"
-                >
-                  <SkipForward size={20} />
-                </button>
-
-                {/* Volume */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      const videoEl = videoRef.current;
-                      if (videoEl) videoEl.muted = !videoEl.muted;
-                    }}
-                    className="hover:text-brand"
-                  >
-                    {muted || volume === 0 ? (
-                      <VolumeX size={20} />
-                    ) : (
-                      <Volume2 size={20} />
-                    )}
-                  </button>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={muted ? 0 : volume}
-                    onChange={(e) => {
-                      const videoEl = videoRef.current;
-                      if (!videoEl) return;
-                      videoEl.volume = Number(e.target.value);
-                      videoEl.muted = false;
-                    }}
-                    className="w-20 accent-brand"
-                  />
-                </div>
-
-                {/* Time */}
-                <span className="text-sm text-gray-300 font-mono ml-1">
+                <span className="text-xs text-gray-300 font-mono flex-1">
                   {formatDuration(current)} / {formatDuration(duration)}
                 </span>
-
-                <div className="ml-auto flex items-center gap-3">
-                  {/* Sleep Timer */}
-                  <div className="relative" ref={sleepMenuRef}>
-                    <button
-                      onClick={() => setShowSleepMenu((v) => !v)}
-                      className={`flex items-center gap-1 text-sm hover:text-brand transition-colors ${
-                        sleepTimeLeft !== null
-                          ? "text-brand font-medium"
-                          : "text-gray-300"
-                      }`}
-                      title={
-                        sleepTimeLeft !== null
-                          ? `Sleep Timer: ${formatSleepTime(sleepTimeLeft)} left`
-                          : "Set Sleep Timer"
-                      }
-                    >
-                      <Timer size={16} />
-                      {sleepTimeLeft !== null
-                        ? formatSleepTime(sleepTimeLeft)
-                        : "Timer"}
-                    </button>
-                    {showSleepMenu && (
-                      <div className="absolute bottom-8 right-0 bg-surface-200 rounded-lg overflow-hidden shadow-xl z-10 w-44 p-1 flex flex-col gap-0.5">
-                        {SLEEP_OPTIONS.map((opt) => (
-                          <button
-                            key={opt.label}
-                            onClick={() => {
-                              setSleepTimeLeft(opt.value);
-                              setShowSleepMenu(false);
-                            }}
-                            className={`block w-full px-3 py-1.5 text-xs text-left rounded hover:bg-surface-300 transition-colors
-                              ${
-                                (opt.value === null &&
-                                  sleepTimeLeft === null) ||
-                                (opt.value !== null &&
-                                  sleepTimeLeft !== null &&
-                                  Math.abs(sleepTimeLeft - opt.value) < 2)
-                                  ? "text-brand font-medium bg-brand/10"
-                                  : "text-gray-300"
-                              }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                        <div className="border-t border-surface-300/50 my-1" />
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const mins = parseInt(customMinutes, 10);
-                            if (!isNaN(mins) && mins > 0) {
-                              setSleepTimeLeft(mins * 60);
-                              setCustomMinutes("");
-                              setShowSleepMenu(false);
-                            }
-                          }}
-                          className="flex items-center gap-1 px-2 py-1"
-                        >
-                          <input
-                            type="number"
-                            min="1"
-                            placeholder="Custom min"
-                            value={customMinutes}
-                            onChange={(e) => setCustomMinutes(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-full bg-surface-300 text-white placeholder-gray-500 rounded px-1.5 py-1 text-xs border border-transparent focus:border-brand focus:outline-none animate-none"
-                          />
-                          <button
-                            type="submit"
-                            className="bg-brand text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-brand/90 transition-colors"
-                          >
-                            Set
-                          </button>
-                        </form>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Speed */}
-                  <div className="relative" ref={speedMenuRef}>
-                    <button
-                      onClick={() => setShowSpeed((v) => !v)}
-                      className="flex items-center gap-1 text-sm hover:text-brand transition-colors"
-                    >
-                      <Settings size={16} /> {speed}×
-                    </button>
-                    {showSpeed && (
-                      <div className="absolute bottom-8 right-0 bg-surface-200 rounded-lg overflow-hidden shadow-xl z-10">
-                        {SPEEDS.map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => {
-                              setSpeed(s);
-                              const videoEl = videoRef.current;
-                              if (videoEl) videoEl.playbackRate = s;
-                              setShowSpeed(false);
-                            }}
-                            className={`block w-full px-4 py-2 text-sm text-left hover:bg-surface-300
-                              ${speed === s ? "text-brand font-medium" : "text-gray-300"}`}
-                          >
-                            {s}×
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fullscreen */}
-                  <button
-                    onClick={toggleFullscreen}
-                    className="hover:text-brand transition-colors"
-                  >
-                    {fullscreen ? (
-                      <Minimize size={20} />
-                    ) : (
-                      <Maximize size={20} />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Metadata Description Card (Directly Under Video) */}
-          <div className="bg-surface-100/30 backdrop-blur-md border border-surface-200/50 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white mb-2">
-                {video.title}
-              </h1>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
-                <span className="px-2 py-0.5 bg-surface-200 rounded-md">
-                  {video.category}
-                </span>
-                {video.subcategory && (
-                  <span className="px-2 py-0.5 bg-surface-200 rounded-md">
-                    {video.subcategory}
-                  </span>
-                )}
-                {video.duration > 0 && (
-                  <span>{formatDuration(video.duration)}</span>
-                )}
-                {video.fileSize > 0 && (
-                  <span>{formatFileSize(video.fileSize)}</span>
-                )}
-                {video.resolution && <span>{video.resolution}</span>}
-              </div>
-
-              {/* Tags */}
-              {video.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {video.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 bg-surface-100 text-gray-400 text-xs rounded-full"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {id !== "external" && (
-              <div className="mt-6 flex justify-end">
                 <button
-                  onClick={toggleFav}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all h-fit
-                    ${
-                      isFav
-                        ? "border-brand text-brand bg-brand/10"
-                        : "border-surface-300 text-gray-400 hover:border-brand hover:text-brand"
-                    }`}
+                  onClick={() => setViewMode("normal")}
+                  className="text-gray-400 hover:text-white transition-colors"
+                  title="Exit Miniplayer"
                 >
-                  <Heart size={18} className={isFav ? "fill-brand" : ""} />
-                  {isFav ? "Favorited" : "Favorite"}
+                  <Maximize size={14} />
                 </button>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Sticky Video Notes & Bookmarks Sidebar */}
-        <div className="lg:col-span-1 lg:h-[calc(100vh-100px)] lg:sticky lg:top-20 flex flex-col">
-          <div className="bg-surface-100/30 backdrop-blur-md border border-surface-200/50 rounded-2xl p-5 shadow-lg flex flex-col h-full min-h-[450px]">
-            <div className="flex items-center justify-between mb-4 shrink-0">
-              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <span className="p-1.5 bg-brand/10 text-brand rounded-lg">
-                  ⏱️
-                </span>
-                Video Notes & Bookmarks
-              </h2>
-              {notes.length > 0 && (
-                <span className="text-xs bg-brand/10 text-brand px-2 py-0.5 rounded-full font-bold">
-                  {notes.length} {notes.length === 1 ? "Note" : "Notes"}
-                </span>
-              )}
             </div>
-
-            {/* Add Note Form */}
-            <form onSubmit={handleAddNote} className="mb-4 shrink-0">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="Type a note about this moment..."
-                  className="flex-1 h-9 px-3 rounded-xl bg-surface-200 border border-surface-300
-                             text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1
-                             focus:ring-brand focus:border-brand transition-all text-white"
-                />
-                <button
-                  type="submit"
-                  disabled={!noteText.trim()}
-                  className="h-9 px-3.5 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-semibold
-                             transition-all flex items-center gap-1.5 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                >
-                  <span>
-                    Add at{" "}
-                    {formatDuration(
-                      Math.floor(
-                        videoRef.current
-                          ? videoRef.current.currentTime
-                          : current,
-                      ),
-                    )}
-                  </span>
-                </button>
-              </div>
-            </form>
-
-            {/* Notes list */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar min-h-0">
-              {notes.length === 0 ? (
-                <div className="text-center py-8 text-xs text-gray-500 flex flex-col items-center justify-center gap-2">
-                  <Bookmark
-                    size={28}
-                    className="text-brand/40 animate-pulse mb-1"
-                  />
-                  <p className="font-semibold text-white/90">
-                    No bookmarks yet
-                  </p>
-                  <p className="opacity-70">
-                    Pause and bookmark important moments!
-                  </p>
-                </div>
-              ) : (
-                notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className={`group/note flex items-start gap-2.5 p-2.5 bg-surface-200/50 hover:bg-surface-200 border rounded-xl transition-all duration-300 ${
-                      note.id === lastAddedId
-                        ? "border-brand bg-brand/5 shadow-[0_0_15px_rgba(239,68,68,0.25)] animate-pulse"
-                        : "border-white/5"
-                    }`}
-                  >
-                    <button
-                      onClick={() => handleSeekToNote(note.timestamp)}
-                      className="px-2 py-1 bg-brand/10 hover:bg-brand/20 border border-brand/20 text-brand text-[10px] font-bold rounded-lg transition-all shrink-0 cursor-pointer flex items-center gap-1"
-                      title="Jump to note time"
-                    >
-                      <span>⏱️</span>
-                      {formatDuration(Math.floor(note.timestamp))}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-200 break-words leading-relaxed">
-                        {note.text}
-                      </p>
-                      <span className="text-[9px] text-gray-500 mt-1 block">
-                        {new Date(note.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        saveNotes(notes.filter((n) => n.id !== note.id))
-                      }
-                      className="opacity-0 group-hover/note:opacity-100 text-gray-500 hover:text-brand transition-all p-1 shrink-0"
-                      title="Delete Note"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Toast Feedback Notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
-          <div className="flex items-center gap-2.5 bg-brand border border-white/20 px-4 py-3 rounded-2xl text-white text-xs font-semibold shadow-2xl shadow-brand/20 backdrop-blur-md animate-bounce">
-            <span>⏱️</span>
-            <span>{toast}</span>
           </div>
         </div>
       )}

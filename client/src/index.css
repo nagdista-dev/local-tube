@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+
 @layer base {
   html {
     @apply scroll-smooth;
@@ -12,214 +13,183 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
+  /* Force Tajawal for any RTL layouts or font-arabic markers */
+  .font-arabic,
+  [dir="rtl"],
+  [dir="rtl"] *,
+  [dir="RTL"],
+  [dir="RTL"] * {
+    font-family: 'Tajawal', 'Inter', system-ui, -apple-system, sans-serif !important;
+  }
+
   /* Light mode support */
   .light {
     color-scheme: light;
   }
 
   .light body {
-    @apply bg-gray-50 text-gray-900;
+    background-color: #f9fafb !important; /* light gray bg */
+    color: #111827 !important;
   }
 
+  /* Exclude elements inside the video player container from light mode overrides */
+  .light .text-white:not(.video-player-container *):not(.video-player-container) {
+    color: #111827 !important;
+  }
+  .light .text-gray-100:not(.video-player-container *):not(.video-player-container) {
+    color: #1f2937 !important;
+  }
+  .light .text-gray-200:not(.video-player-container *):not(.video-player-container) {
+    color: #374151 !important;
+  }
+  .light .text-gray-300:not(.video-player-container *):not(.video-player-container) {
+    color: #4b5563 !important;
+  }
+  .light .text-gray-400:not(.video-player-container *):not(.video-player-container) {
+    color: #6b7280 !important;
+  }
+  .light .text-gray-500:not(.video-player-container *):not(.video-player-container) {
+    color: #8c96a3 !important;
+  }
+
+  /* Dynamic hover states inside sidebar/main list */
+  .light .hover\:text-white:hover:not(.video-player-container *):not(.video-player-container) {
+    color: #000000 !important;
+  }
+
+  /* Hardcoded white fill icons */
+  .light .fill-white:not(.video-player-container *):not(.video-player-container) {
+    fill: #111827 !important;
+  }
+
+  /* Custom overrides for surface background colors to blend perfectly */
   .light .bg-surface {
-    @apply bg-white;
+    background-color: #ffffff !important;
+  }
+  .light .bg-surface\/95 {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+  }
+  .light .bg-surface\/80 {
+    background-color: rgba(255, 255, 255, 0.8) !important;
   }
 
   .light .bg-surface-50 {
-    @apply bg-gray-100;
+    background-color: #f9fafb !important;
   }
 
-  .light .bg-surface-100 {
-    @apply bg-gray-200;
+  .light .bg-surface-100,
+  .light .bg-surface-100\/40,
+  .light .bg-surface-100\/60,
+  .light .bg-surface-100\/95 {
+    background-color: #f3f4f6 !important;
+  }
+  .light .bg-surface-100\/40 {
+    background-color: rgba(243, 244, 246, 0.4) !important;
+  }
+  .light .bg-surface-100\/60 {
+    background-color: rgba(243, 244, 246, 0.6) !important;
+  }
+  .light .bg-surface-100\/95 {
+    background-color: rgba(243, 244, 246, 0.95) !important;
   }
 
-  .light .bg-surface-200 {
-    @apply bg-gray-300;
+  .light .bg-surface-200,
+  .light .bg-surface-200\/70 {
+    background-color: #e5e7eb !important;
+  }
+  .light .bg-surface-200\/70 {
+    background-color: rgba(229, 231, 235, 0.7) !important;
   }
 
   .light .bg-surface-300 {
-    @apply bg-gray-400;
+    background-color: #d1d5db !important;
   }
 
-  .light .text-white {
-    @apply text-gray-900;
+  .light .hover\:bg-surface-100:hover {
+    background-color: #e5e7eb !important;
+  }
+  .light .hover\:bg-surface-200:hover {
+    background-color: #d1d5db !important;
   }
 
-  .light .text-gray-300 {
-    @apply text-gray-700;
+  /* Overrides for hardcoded black backgrounds */
+  .light .bg-black:not(.video-player-container *):not(.video-player-container) {
+    background-color: #ffffff !important;
+  }
+  .light .bg-black\/50:not(.video-player-container *):not(.video-player-container) {
+    background-color: rgba(243, 244, 246, 0.5) !important;
+  }
+  .light .bg-black\/60:not(.video-player-container *):not(.video-player-container) {
+    background-color: rgba(229, 231, 235, 0.6) !important;
+  }
+  .light .bg-black\/80:not(.video-player-container *):not(.video-player-container) {
+    background-color: rgba(209, 213, 219, 0.8) !important;
   }
 
-  .light .text-gray-400 {
-    @apply text-gray-600;
+  /* Custom overrides for white borders to blend perfectly */
+  .light .border-white\/5:not(.video-player-container *):not(.video-player-container),
+  .light .border-white\/10:not(.video-player-container *):not(.video-player-container) {
+    border-color: rgba(0, 0, 0, 0.08) !important;
   }
 
-  .light .border-surface-200 {
-    @apply border-gray-200;
+  .light .border-surface-200,
+  .light .border-surface-200\/80,
+  .light .border-surface-200\/60,
+  .light .border-surface-200\/50,
+  .light .border-surface-200\/40 {
+    border-color: #e5e7eb !important;
+  }
+  .light .border-surface-200\/80 {
+    border-color: rgba(229, 231, 235, 0.8) !important;
+  }
+  .light .border-surface-200\/60 {
+    border-color: rgba(229, 231, 235, 0.6) !important;
+  }
+  .light .border-surface-200\/50 {
+    border-color: rgba(229, 231, 235, 0.5) !important;
+  }
+  .light .border-surface-200\/40 {
+    border-color: rgba(229, 231, 235, 0.4) !important;
   }
 
   .light .border-surface-300 {
-    @apply border-gray-300;
+    border-color: #d1d5db !important;
   }
 
-  .light .border-white\/5 {
-    @apply border-black/5;
+  /* Interactive component buttons and input borders */
+  .light .bg-white\/20:not(.video-player-container *):not(.video-player-container) {
+    background-color: rgba(0, 0, 0, 0.06) !important;
   }
-
-  .light .hover\:bg-surface-200:hover {
-    @apply bg-gray-200;
+  .light .bg-white\/30:not(.video-player-container *):not(.video-player-container) {
+    background-color: rgba(0, 0, 0, 0.1) !important;
   }
-
   .light .placeholder\:text-gray-500::placeholder {
-    @apply text-gray-600;
+    color: #9ca3af !important;
   }
 
-  /* Light mode brand colors */
+  /* Brand / accent color adjustments for light mode contrast */
   .light .bg-brand {
-    @apply bg-red-700;
+    background-color: #e50914 !important;
   }
-
   .light .text-brand {
-    @apply text-red-700;
+    color: #e50914 !important;
   }
-
   .light .hover\:bg-brand:hover {
-    @apply bg-red-800;
+    background-color: #c41a0b !important;
   }
-
   .light .hover\:text-brand:hover {
-    @apply text-red-800;
-  }
-
-  /* Light mode accent colors */
-  .light .bg-accent {
-    @apply bg-blue-700;
-  }
-
-  .light .text-accent {
-    @apply text-blue-700;
-  }
-
-  .light .hover\:bg-accent:hover {
-    @apply bg-blue-800;
-  }
-
-  .light .hover\:text-accent:hover {
-    @apply text-blue-800;
-  }
-
-  .light .border-brand {
-    @apply border-red-700;
-  }
-
-  .light .border-accent {
-    @apply border-blue-700;
-  }
-
-  /* Light mode text color overrides */
-  .light .text-white {
-    @apply text-gray-900;
-  }
-
-  .light .text-gray-500 {
-    @apply text-gray-600;
-  }
-
-  .light .text-gray-400 {
-    @apply text-gray-700;
-  }
-
-  .light .text-gray-300 {
-    @apply text-gray-800;
-  }
-
-  /* Light mode background overrides */
-  .light .bg-surface-100 {
-    @apply bg-gray-100;
-  }
-
-  .light .bg-surface-200 {
-    @apply bg-gray-200;
-  }
-
-  .light .bg-surface-300 {
-    @apply bg-gray-300;
-  }
-
-  .light .hover\:text-white:hover {
-    @apply text-gray-900;
-  }
-
-  .light .hover\:text-brand\/10:hover {
-    @apply text-red-700;
-  }
-
-  /* Custom scrollbar for Webkit */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-surface-100;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-surface-300 rounded-full;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-500;
+    color: #c41a0b !important;
   }
 
   /* Light mode scrollbar */
   .light ::-webkit-scrollbar-track {
-    @apply bg-gray-100;
+    background-color: #f3f4f6 !important;
   }
   .light ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300;
+    background-color: #d1d5db !important;
   }
   .light ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400;
-  }
-
-  /* Light mode overrides for hardcoded black backgrounds */
-  .light .bg-black {
-    background-color: #ffffff;
-  }
-
-  .light .bg-black\/50 {
-    background-color: rgba(243, 244, 246, 0.5);
-  }
-
-  .light .bg-black\/60 {
-    background-color: rgba(229, 231, 235, 0.6);
-  }
-
-  .light .bg-black\/80 {
-    background-color: rgba(209, 213, 219, 0.8);
-  }
-
-  /* Light mode border fixes */
-  .light .border-white\/10 {
-    border-color: rgba(107, 114, 128, 0.1);
-  }
-
-  .light .border-white\/5 {
-    border-color: rgba(107, 114, 128, 0.05);
-  }
-
-  /* Light mode text and fill color fixes */
-  .light .text-gray-100 {
-    color: #111827;
-  }
-
-  .light .fill-white {
-    fill: #111827;
-  }
-
-  .light .bg-white\/20 {
-    background-color: rgba(0, 0, 0, 0.1);
-  }
-
-  .light .bg-white\/30 {
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: #9ca3af !important;
   }
 }
 

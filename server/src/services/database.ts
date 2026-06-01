@@ -45,6 +45,11 @@ db.exec(`
     FOREIGN KEY (videoId) REFERENCES videos(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS courses (
+    category  TEXT PRIMARY KEY,
+    markedAt  TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_videos_category  ON videos(category);
   CREATE INDEX IF NOT EXISTS idx_videos_addedAt   ON videos(addedAt DESC);
   CREATE INDEX IF NOT EXISTS idx_videos_title     ON videos(title COLLATE NOCASE);
@@ -74,6 +79,39 @@ function mapRow(row: Record<string, unknown>): Video {
     watchProgress: duration > 0 ? Math.min(watchTimestamp / duration, 1) : 0,
     isFavorite:    Boolean(row.isFavorite),
     tags:          JSON.parse((row.tags as string) || '[]'),
+  };
+}
+
+function normalizeRelativePath(value: string): string {
+  return value.replace(/\\/g, '/');
+}
+
+function folderPartsForVideo(relativePath: string): string[] {
+  const parts = normalizeRelativePath(relativePath).split('/').filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1) : ['Uncategorized'];
+}
+
+function folderPathMatchesExpression(alias = 'v'): string {
+  return `(
+    @folderPath = ''
+    OR (@folderPath = 'Uncategorized' AND ${alias}.relativePath NOT LIKE '%/%' AND ${alias}.relativePath NOT LIKE '%\\%')
+    OR ${alias}.relativePath = @folderPath
+    OR ${alias}.relativePath LIKE @folderPath || '/%'
+    OR ${alias}.relativePath LIKE @folderPath || '\\%'
+  )`;
+}
+
+function createCategoryNode(name: string, folderPath: string, isCourse: boolean): Category {
+  return {
+    name,
+    path: folderPath,
+    count: 0,
+    subcategories: [],
+    isCourse,
+    totalDuration: 0,
+    watchedDuration: 0,
+    completedCount: 0,
+    remainingDuration: 0,
   };
 }
 
@@ -115,7 +153,7 @@ const stmts = {
     SELECT v.*, wh.timestamp AS watchTimestamp, wh.updatedAt AS lastWatched
     FROM videos v
     LEFT JOIN watch_history wh ON v.id = wh.videoId
-    WHERE v.category = ?
+    WHERE ${folderPathMatchesExpression('v')}
     ORDER BY v.addedAt DESC
     LIMIT @limit OFFSET @offset
   `),
@@ -129,12 +167,14 @@ const stmts = {
     LIMIT @limit
   `),
 
-  categories: db.prepare(`
-    SELECT category, COUNT(*) as count,
-           GROUP_CONCAT(DISTINCT COALESCE(subcategory, '')) AS subs
-    FROM videos
-    GROUP BY category
-    ORDER BY count DESC
+  categoryRows: db.prepare(`
+    SELECT v.relativePath, v.duration, COALESCE(wh.timestamp, 0) AS watchTimestamp
+    FROM videos v
+    LEFT JOIN watch_history wh ON v.id = wh.videoId
+  `),
+
+  courseRows: db.prepare(`
+    SELECT category FROM courses
   `),
 
   recentlyWatched: db.prepare(`
@@ -154,7 +194,11 @@ const stmts = {
   `),
 
   count: db.prepare('SELECT COUNT(*) AS c FROM videos'),
-  countByCategory: db.prepare('SELECT COUNT(*) AS c FROM videos WHERE category = ?'),
+  countByCategory: db.prepare(`
+    SELECT COUNT(*) AS c
+    FROM videos v
+    WHERE ${folderPathMatchesExpression('v')}
+  `),
 
   existingPaths: db.prepare('SELECT path FROM videos'),
   deleteByPath:  db.prepare('DELETE FROM videos WHERE path = ?'),
@@ -171,6 +215,14 @@ const stmts = {
   `),
   deleteProgress: db.prepare('DELETE FROM watch_history WHERE videoId = ?'),
   getProgress: db.prepare('SELECT timestamp FROM watch_history WHERE videoId = ?'),
+
+  markCourse: db.prepare(`
+    INSERT INTO courses (category, markedAt)
+    VALUES (?, ?)
+    ON CONFLICT(category) DO UPDATE SET markedAt = excluded.markedAt
+  `),
+  unmarkCourse: db.prepare('DELETE FROM courses WHERE category = ?'),
+  isCourse: db.prepare('SELECT category FROM courses WHERE category = ?'),
 };
 
 // ─── Public API ────────────────────────────────────────────────────────────
@@ -212,7 +264,7 @@ export const videoDb = {
   },
 
   findByCategory(category: string, limit = 60, offset = 0): Video[] {
-    return (stmts.selectByCategory.all(category, { limit, offset }) as Record<string, unknown>[]).map(mapRow);
+    return (stmts.selectByCategory.all({ folderPath: category, limit, offset }) as Record<string, unknown>[]).map(mapRow);
   },
 
   search(query: string, limit = 60): Video[] {
@@ -220,14 +272,61 @@ export const videoDb = {
   },
 
   getCategories(): Category[] {
-    const rows = stmts.categories.all() as { category: string; count: number; subs: string }[];
-    return rows.map(r => ({
-      name: r.category,
-      count: r.count,
-      subcategories: r.subs
-        ? r.subs.split(',').filter(s => s.length > 0)
-        : [],
-    }));
+    const courseRows = stmts.courseRows.all() as { category: string }[];
+    const coursePaths = new Set(courseRows.map(row => row.category));
+    const nodes = new Map<string, Category>();
+    const roots: Category[] = [];
+
+    const ensureNode = (folderPath: string): Category => {
+      const existing = nodes.get(folderPath);
+      if (existing) return existing;
+
+      const parts = folderPath.split('/').filter(Boolean);
+      const name = parts.at(-1) || folderPath || 'Uncategorized';
+      const node = createCategoryNode(name, folderPath, coursePaths.has(folderPath));
+      nodes.set(folderPath, node);
+
+      if (folderPath === 'Uncategorized' || parts.length <= 1) {
+        roots.push(node);
+      } else {
+        const parentPath = parts.slice(0, -1).join('/');
+        ensureNode(parentPath).subcategories.push(node);
+      }
+
+      return node;
+    };
+
+    const rows = stmts.categoryRows.all() as {
+      relativePath: string;
+      duration: number;
+      watchTimestamp: number;
+    }[];
+
+    for (const row of rows) {
+      const folderParts = folderPartsForVideo(row.relativePath);
+      const duration = row.duration || 0;
+      const watched = duration > 0 ? Math.min(row.watchTimestamp || 0, duration) : 0;
+      const complete = duration > 0 && (row.watchTimestamp || 0) >= duration * 0.98 ? 1 : 0;
+
+      for (let i = 0; i < folderParts.length; i++) {
+        const folderPath = folderParts.slice(0, i + 1).join('/');
+        const node = ensureNode(folderPath);
+        node.count++;
+        node.totalDuration = (node.totalDuration || 0) + duration;
+        node.watchedDuration = (node.watchedDuration || 0) + watched;
+        node.completedCount = (node.completedCount || 0) + complete;
+      }
+    }
+
+    const finalize = (node: Category) => {
+      node.remainingDuration = Math.max((node.totalDuration || 0) - (node.watchedDuration || 0), 0);
+      node.subcategories.sort((a, b) => a.name.localeCompare(b.name));
+      node.subcategories.forEach(finalize);
+    };
+
+    roots.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    roots.forEach(finalize);
+    return roots;
   },
 
   getRecentlyWatched(limit = 12): Video[] {
@@ -243,7 +342,7 @@ export const videoDb = {
   },
 
   countByCategory(category: string): number {
-    return ((stmts.countByCategory.get(category) as Record<string, unknown>).c as number);
+    return ((stmts.countByCategory.get({ folderPath: category }) as Record<string, unknown>).c as number);
   },
 
   getExistingPaths(): Set<string> {
@@ -273,6 +372,21 @@ export const videoDb = {
   getProgress(videoId: string): number {
     const row = stmts.getProgress.get(videoId) as { timestamp: number } | undefined;
     return row?.timestamp ?? 0;
+  },
+
+  setCourse(category: string, isCourse: boolean): boolean {
+    const normalized = category.trim();
+    if (!normalized) return false;
+    if (isCourse) {
+      stmts.markCourse.run(normalized, new Date().toISOString());
+    } else {
+      stmts.unmarkCourse.run(normalized);
+    }
+    return true;
+  },
+
+  isCourse(category: string): boolean {
+    return Boolean(stmts.isCourse.get(category));
   },
 };
 

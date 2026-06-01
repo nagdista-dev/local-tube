@@ -19,8 +19,14 @@ export interface Video {
 
 export interface Category {
   name: string;
+  path: string;
   count: number;
-  subcategories: string[];
+  subcategories: Category[];
+  isCourse?: boolean;
+  totalDuration?: number;
+  watchedDuration?: number;
+  completedCount?: number;
+  remainingDuration?: number;
 }
 
 export interface ScanStatus {
@@ -31,6 +37,19 @@ export interface ScanStatus {
   startedAt?: string;
 }
 
+export interface LibraryLocation {
+  videosDir: string;
+}
+
+export interface DirectoryListing {
+  currentPath: string;
+  parentPath: string | null;
+  entries: {
+    name: string;
+    path: string;
+  }[];
+}
+
 export interface VideoListResponse {
   videos: Video[];
   total: number;
@@ -39,7 +58,17 @@ export interface VideoListResponse {
   hasMore: boolean;
 }
 
-export type SortOption = 'date' | 'name' | 'size' | 'duration';
+export type SortOption =
+  | 'date'
+  | 'date-asc'
+  | 'name'
+  | 'name-desc'
+  | 'size'
+  | 'size-asc'
+  | 'duration'
+  | 'duration-asc'
+  | 'progress'
+  | 'progress-asc';
 
 export interface FilterState {
   sort:     SortOption;

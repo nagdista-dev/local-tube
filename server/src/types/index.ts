@@ -21,8 +21,14 @@ export interface Video {
 
 export interface Category {
   name: string;
+  path: string;
   count: number;
-  subcategories: string[];
+  subcategories: Category[];
+  isCourse?: boolean;
+  totalDuration?: number;
+  watchedDuration?: number;
+  completedCount?: number;
+  remainingDuration?: number;
 }
 
 export interface ScanStatus {

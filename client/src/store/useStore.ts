@@ -23,6 +23,10 @@ interface AppStore {
   theme: "dark" | "light";
   setTheme: (theme: "dark" | "light") => void;
   toggleTheme: () => void;
+
+  // Layout view (grid or list)
+  viewLayout: "grid" | "list";
+  setViewLayout: (v: "grid" | "list") => void;
 }
 
 const DEFAULT_FILTERS: FilterState = {
@@ -53,6 +57,9 @@ export const useStore = create<AppStore>()(
       setTheme: (theme) => set({ theme }),
       toggleTheme: () =>
         set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
+
+      viewLayout: "grid",
+      setViewLayout: (viewLayout) => set({ viewLayout }),
     }),
     {
       name: "localtube-store",
@@ -60,6 +67,7 @@ export const useStore = create<AppStore>()(
         sidebarOpen: s.sidebarOpen,
         filters: s.filters,
         theme: s.theme,
+        viewLayout: s.viewLayout,
       }),
     },
   ),

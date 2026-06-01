@@ -9,11 +9,12 @@ import {
   ChevronDown,
   ChevronRight,
   Tv2,
-  Film,
+  CheckCircle2,
 } from "lucide-react";
 import { api } from "../utils/api";
 import { useStore } from "../store/useStore";
 import { Category } from "../types";
+import { isArabic } from "../utils/format";
 
 const NAV_LINKS = [
   { to: "/", icon: Home, label: "Home" },
@@ -36,21 +37,22 @@ function CategoryTree({
   onSelectCategory: (name: string) => void;
   level?: number;
 }) {
-  const isExpanded = expandedFolders.has(category.name);
+  const isExpanded = expandedFolders.has(category.path);
   const hasSubcategories = category.subcategories?.length > 0;
+  const isActive = activeCategory === category.path;
 
   return (
     <div>
       <button
         onClick={() => {
           if (hasSubcategories) {
-            onToggleExpand(category.name);
+            onToggleExpand(category.path);
           }
-          onSelectCategory(category.name);
+          onSelectCategory(category.path);
         }}
         className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
           ${
-            activeCategory === category.name
+            isActive
               ? "bg-surface-200 text-white font-medium"
               : "text-gray-400 hover:bg-surface-100 hover:text-white"
           }`}
@@ -65,34 +67,32 @@ function CategoryTree({
         {!hasSubcategories && <div className="w-4" />}
 
         <FolderOpen size={14} className="shrink-0" />
-        <span className="flex-1 text-left truncate">{category.name}</span>
+        <span
+          className={`flex-1 text-left truncate ${
+            isArabic(category.name) ? "font-arabic text-right" : ""
+          }`}
+          dir={isArabic(category.name) ? "rtl" : undefined}
+        >
+          {category.name}
+        </span>
+        {category.isCourse && <CheckCircle2 size={13} className="text-emerald-300" />}
         <span className="text-xs text-gray-600">{category.count}</span>
       </button>
 
       {/* Subcategories */}
       {hasSubcategories && isExpanded && (
         <div className="flex flex-col gap-0.5">
-          {category.subcategories.map((subName) => {
-            const isActive = activeCategory === subName;
-            return (
-              <button
-                key={subName}
-                onClick={() => onSelectCategory(subName)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
-                  ${
-                    isActive
-                      ? "bg-surface-200 text-white font-medium"
-                      : "text-gray-400 hover:bg-surface-100 hover:text-white"
-                  }`}
-                style={{ paddingLeft: `${12 + (level + 1) * 16}px` }}
-              >
-                <Film size={12} className="shrink-0" />
-                <span className="flex-1 text-left truncate text-xs">
-                  {subName}
-                </span>
-              </button>
-            );
-          })}
+          {category.subcategories.map((subCategory) => (
+            <CategoryTree
+              key={subCategory.path}
+              category={subCategory}
+              activeCategory={activeCategory}
+              expandedFolders={expandedFolders}
+              onToggleExpand={onToggleExpand}
+              onSelectCategory={onSelectCategory}
+              level={level + 1}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -158,11 +158,11 @@ export default function Sidebar() {
         <div className="mt-2 border-t border-surface-200 pt-2 flex flex-col gap-1">
           {categories.slice(0, 8).map((cat) => (
             <button
-              key={cat.name}
-              onClick={() => handleCategory(cat.name)}
+              key={cat.path}
+              onClick={() => handleCategory(cat.path)}
               className={`p-3 rounded-lg transition-colors flex items-center justify-center
                 ${
-                  activeCategory === cat.name
+                  activeCategory === cat.path
                     ? "bg-surface-200 text-brand"
                     : "text-gray-400 hover:bg-surface-200 hover:text-white"
                 }`}
@@ -230,7 +230,7 @@ export default function Sidebar() {
 
           {categories.map((cat) => (
             <CategoryTree
-              key={cat.name}
+              key={cat.path}
               category={cat}
               activeCategory={activeCategory}
               expandedFolders={expandedFolders}

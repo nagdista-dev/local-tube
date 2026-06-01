@@ -10,11 +10,11 @@ import videosRouter from './routes/videos';
 import streamRouter from './routes/stream';
 import scanRouter   from './routes/scan';
 import { scanLibrary } from './services/scanner';
+import { getLibraryLocation } from './services/libraryConfig';
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
 const PORT        = parseInt(process.env.PORT || '3001', 10);
-const VIDEOS_DIR  = process.env.VIDEOS_DIR || path.join(process.env.HOME || '', 'Videos');
 const THUMBNAILS  = path.join(__dirname, '../../thumbnails');
 const AUTO_SCAN   = process.env.AUTO_SCAN !== 'false'; // default true
 
@@ -49,7 +49,7 @@ app.use('/api/scan',   scanRouter);
 app.get('/api/health', (_req, res) => {
   res.json({
     status:     'ok',
-    videosDir:  VIDEOS_DIR,
+    videosDir:  getLibraryLocation(),
     timestamp:  new Date().toISOString(),
   });
 });
@@ -72,13 +72,13 @@ app.listen(PORT, () => {
   console.log('🎬 ─────────────────────────────────────');
   console.log(`   LocalTube Server v1.0`);
   console.log(`   http://localhost:${PORT}`);
-  console.log(`   Videos: ${VIDEOS_DIR}`);
+  console.log(`   Videos: ${getLibraryLocation()}`);
   console.log('─────────────────────────────────────────');
   console.log('');
 
   if (AUTO_SCAN) {
     console.log('[Auto-Scan] Initiating library scan...');
-    scanLibrary(VIDEOS_DIR).catch(err =>
+    scanLibrary(getLibraryLocation()).catch(err =>
       console.error('[Auto-Scan] Failed:', err.message)
     );
   }

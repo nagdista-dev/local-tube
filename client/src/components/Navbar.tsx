@@ -13,10 +13,12 @@ import {
   AlertTriangle,
   Moon,
   Sun,
+  FolderOpen,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useTheme } from "../hooks/useTheme";
 import { api } from "../utils/api";
+import type { DirectoryListing } from "../types";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -29,12 +31,20 @@ export default function Navbar() {
   const [localSearch, setLocalSearch] = useState(search);
   const [scanning, setScanning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const locationRef = useRef<HTMLDivElement>(null);
 
   // ── Play External URL States inside Navbar popover ────────────────────────
   const [showUrlDropdown, setShowUrlDropdown] = useState(false);
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [videosDir, setVideosDir] = useState("");
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationSaving, setLocationSaving] = useState(false);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryListing, setDirectoryListing] = useState<DirectoryListing | null>(null);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -48,6 +58,27 @@ export default function Navbar() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        locationRef.current &&
+        !locationRef.current.contains(e.target as Node)
+      ) {
+        setShowLocationDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    api.scan.location()
+      .then(({ videosDir }) => setVideosDir(videosDir))
+      .catch(() => {
+        setLocationError("Unable to load the saved video folder.");
+      });
   }, []);
 
   const handlePlayStream = (e: React.FormEvent) => {
@@ -77,7 +108,7 @@ export default function Navbar() {
     }
   };
 
-  // Debounce search and redirect to Home if searching on subpages
+  // Debounce search and redirect to Home if searching on listing subpages
   useEffect(() => {
     // If it's a URL, do NOT update search filters in the store!
     if (/^https?:\/\//i.test(localSearch.trim())) {
@@ -85,30 +116,87 @@ export default function Navbar() {
     }
     const t = setTimeout(() => {
       setSearch(localSearch);
-      if (localSearch.trim() && location.pathname !== "/") {
+      // Only redirect from listing pages — never interrupt a /watch/ navigation
+      const isListingPage = location.pathname === "/history" || location.pathname === "/favorites";
+      if (localSearch.trim() && isListingPage) {
         navigate("/");
       }
     }, 300);
     return () => clearTimeout(t);
   }, [localSearch, setSearch, navigate, location.pathname]);
 
-  const handleScan = useCallback(async () => {
-    setScanning(true);
-    try {
-      await api.scan.start();
-      // Poll until done
-      const poll = setInterval(async () => {
-        const status = await api.scan.status();
-        if (status.status !== "scanning") {
-          clearInterval(poll);
-          setScanning(false);
-          window.location.reload();
+
+  const waitForScan = useCallback(() => {
+    return new Promise<void>((resolve, reject) => {
+      const poll = window.setInterval(async () => {
+        try {
+          const status = await api.scan.status();
+          if (status.status !== "scanning") {
+            window.clearInterval(poll);
+            if (status.status === "error") {
+              reject(new Error(status.message || "Scan failed."));
+              return;
+            }
+            resolve();
+          }
+        } catch (err) {
+          window.clearInterval(poll);
+          reject(err);
         }
       }, 2000);
-    } catch {
+    });
+  }, []);
+
+  const handleScan = useCallback(async () => {
+    setScanning(true);
+    setLocationError(null);
+    try {
+      await api.scan.start();
+      await waitForScan();
+      window.location.reload();
+    } catch (err: unknown) {
       setScanning(false);
+      setLocationError(err instanceof Error ? err.message : "Unable to scan video folder.");
+    }
+  }, [waitForScan]);
+
+  const loadDirectories = useCallback(async (path?: string) => {
+    setDirectoryLoading(true);
+    setLocationError(null);
+
+    try {
+      setDirectoryListing(await api.scan.directories(path));
+    } catch (err: unknown) {
+      setLocationError(err instanceof Error ? err.message : "Unable to open folder.");
+    } finally {
+      setDirectoryLoading(false);
     }
   }, []);
+
+  const handleSaveLocation = useCallback(async () => {
+    const selectedPath = directoryListing?.currentPath || videosDir;
+
+    if (!selectedPath.trim()) {
+      setLocationError("Select a folder.");
+      return;
+    }
+
+    setLocationSaving(true);
+    setScanning(true);
+    setLocationError(null);
+
+    try {
+      const saved = await api.scan.saveLocation(selectedPath);
+      setVideosDir(saved.videosDir);
+      await api.scan.start();
+      await waitForScan();
+      window.location.reload();
+    } catch (err: unknown) {
+      setScanning(false);
+      setLocationSaving(false);
+      setLocationError(err instanceof Error ? err.message : "Unable to save video folder.");
+    }
+  }, [directoryListing?.currentPath, videosDir, waitForScan]);
 
   const clearSearch = () => {
     setLocalSearch("");
@@ -319,6 +407,116 @@ export default function Navbar() {
         >
           <Heart size={20} />
         </Link>
+        <div className="relative" ref={locationRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowLocationDropdown((open) => {
+                if (!open) {
+                  loadDirectories(videosDir);
+                }
+                return !open;
+              });
+            }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all
+                       ${
+                         showLocationDropdown
+                           ? "bg-brand/10 text-brand border-brand/50"
+                           : "bg-surface-200 dark:bg-surface-200 border-surface-300 dark:border-surface-300 text-gray-300 hover:text-white hover:border-brand/40"
+                       }`}
+            title={videosDir ? `Video Folder: ${videosDir}` : "Set Video Folder"}
+          >
+            <FolderOpen size={15} />
+            <span className="hidden lg:block">Folder</span>
+          </button>
+
+          {showLocationDropdown && (
+            <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-surface-100/95 dark:bg-surface-100/95 backdrop-blur-xl border border-surface-200/80 dark:border-surface-200/80 rounded-2xl p-5 shadow-2xl z-50 animate-fade-in text-left">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1 bg-brand/10 text-brand rounded-md">
+                  <FolderOpen size={14} />
+                </div>
+                <h3 className="text-xs font-bold text-white dark:text-white uppercase tracking-wider">
+                  Video Folder
+                </h3>
+              </div>
+
+              <p className="text-[11px] text-gray-400 dark:text-gray-400 mb-3 leading-relaxed">
+                Click through folders on this computer, then use the current
+                folder as your video library.
+              </p>
+
+              {locationError && (
+                <div className="mb-3 p-2 bg-brand/10 border border-brand/20 text-brand text-[10px] rounded-lg flex items-start gap-1">
+                  <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                  <p className="flex-1">{locationError}</p>
+                </div>
+              )}
+
+              <div className="mb-3 rounded-lg bg-surface-200 dark:bg-surface-200 border border-surface-300 dark:border-surface-300 p-2">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                  Current Folder
+                </p>
+                <p className="text-[11px] text-gray-200 font-mono break-all">
+                  {directoryListing?.currentPath || videosDir || "Loading..."}
+                </p>
+              </div>
+
+              <div className="max-h-56 overflow-y-auto rounded-lg border border-surface-300 dark:border-surface-300 bg-surface-200/70 dark:bg-surface-200/70 mb-3">
+                {directoryListing?.parentPath && (
+                  <button
+                    type="button"
+                    onClick={() => loadDirectories(directoryListing.parentPath || undefined)}
+                    className="w-full px-3 py-2 text-left text-xs text-gray-300 hover:text-white hover:bg-surface-300 dark:hover:bg-surface-300 transition-colors border-b border-surface-300/60"
+                  >
+                    .. Up
+                  </button>
+                )}
+
+                {directoryLoading && (
+                  <div className="px-3 py-3 text-xs text-gray-400 flex items-center gap-2">
+                    <RefreshCw size={12} className="animate-spin" />
+                    Loading folders...
+                  </div>
+                )}
+
+                {!directoryLoading && directoryListing?.entries.length === 0 && (
+                  <div className="px-3 py-3 text-xs text-gray-500">
+                    No subfolders here.
+                  </div>
+                )}
+
+                {!directoryLoading && directoryListing?.entries.map((entry) => (
+                  <button
+                    key={entry.path}
+                    type="button"
+                    onClick={() => loadDirectories(entry.path)}
+                    className="w-full px-3 py-2 text-left text-xs text-gray-300 hover:text-white hover:bg-surface-300 dark:hover:bg-surface-300 transition-colors flex items-center gap-2 border-b border-surface-300/40 last:border-b-0"
+                  >
+                    <FolderOpen size={13} className="text-brand shrink-0" />
+                    <span className="truncate">{entry.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveLocation}
+                  disabled={locationSaving || scanning || !directoryListing?.currentPath}
+                  className="w-full h-8 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold
+                             transition-all flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw
+                    size={10}
+                    className={locationSaving || scanning ? "animate-spin" : ""}
+                  />
+                  {locationSaving || scanning ? "Saving and Scanning..." : "Save Folder and Scan"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <button
           onClick={handleScan}
           disabled={scanning}
