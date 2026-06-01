@@ -178,9 +178,6 @@ export default function CourseStudyPlanner({
             <span>Open this view in D‑Tab format for a richer visual experience.</span>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-2 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white">
-              Open D‑Tab
-            </button>
             <button onClick={() => setShowDTabNotice(false)} className="p-1 rounded hover:bg-surface-200/30">
               <X size={14} className="text-emerald-300" />
             </button>
