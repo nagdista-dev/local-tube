@@ -38,11 +38,13 @@ const WEEKDAY_I18N = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 interface CourseStudyPlannerProps {
   categoryPath: string;
   courseTitle: string;
+  activeTab?: 'todayPlan' | 'studySettings';
 }
 
 export default function CourseStudyPlanner({
   categoryPath,
   courseTitle,
+  activeTab,
 }: CourseStudyPlannerProps) {
   const { t, locale } = useTranslation();
   const queryClient = useQueryClient();
@@ -225,327 +227,262 @@ export default function CourseStudyPlanner({
         </div>
       </div>
 
-      <div className="p-2 sm:p-4 space-y-2">
-        {/* Settings Collapsible */}
-        <div className="rounded-xl border border-surface-200/50 bg-surface-100/30 overflow-hidden transition-all duration-200">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="w-full flex items-center justify-between p-4 hover:bg-surface-200/30 transition-colors focus:outline-none"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-200/80 text-gray-400">
-                <Settings2 size={16} />
-              </div>
-              <span className="font-semibold text-white text-sm">
-                {t("coursePlanner.dailyTime")} & {t("coursePlanner.studyDays")}
-              </span>
-            </div>
-            {showSettings ? (
-              <ChevronUp size={18} className="text-gray-500" />
-            ) : (
-              <ChevronDown size={18} className="text-gray-500" />
-            )}
-          </button>
-
-          {showSettings && (
-            <div className="p-4 pt-0 border-t border-surface-200/30 animate-fade-in">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-                    {t("coursePlanner.dailyTime")}
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <label className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase">
-                        {t("coursePlanner.hours")}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={12}
-                        value={hours}
-                        onChange={(e) =>
-                          setHours(
-                            Math.max(0, parseInt(e.target.value, 10) || 0),
-                          )
-                        }
-                        onBlur={() => applyDailyTime(hours, minutes)}
-                        className="w-24 rounded-lg border border-surface-300 bg-surface-200/50 px-3 py-2 text-sm font-semibold text-white focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all"
-                      />
-                    </label>
-                    <span className="text-xl text-gray-500 font-light mt-5">
-                      :
-                    </span>
-                    <label className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase">
-                        {t("coursePlanner.minutes")}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={59}
-                        value={minutes}
-                        onChange={(e) =>
-                          setMinutes(
-                            Math.min(
-                              59,
-                              Math.max(0, parseInt(e.target.value, 10) || 0),
-                            ),
-                          )
-                        }
-                        onBlur={() => applyDailyTime(hours, minutes)}
-                        className="w-24 rounded-lg border border-surface-300 bg-surface-200/50 px-3 py-2 text-sm font-semibold text-white focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all"
-                      />
-                    </label>
+      <div className="p-2 sm:p-4 space-y-4">
+        {(!activeTab || activeTab === 'studySettings') && (
+          <div className="rounded-xl border border-surface-200/50 bg-surface-100/30 overflow-hidden">
+            {!activeTab && (
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="w-full flex items-center justify-between p-4 hover:bg-surface-200/30 transition-colors focus:outline-none"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-200/80 text-gray-400">
+                    <Settings2 size={16} />
                   </div>
-                  <p className="text-[11px] text-gray-400 font-medium mt-3 px-1">
-                    {t("coursePlanner.perStudyDay", {
-                      duration: formatDuration(plan.dailyMinutes * 60),
-                    })}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-                    {t("coursePlanner.studyDays")}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {WEEKDAY_OPTIONS.map(({ value }) => {
-                      const label = t(
-                        `coursePlanner.weekdays.${WEEKDAY_I18N[value]}`,
-                      );
-                      const active = plan.studyDays.includes(value);
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => toggleStudyDay(value)}
-                          className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
-                            active
-                              ? "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
-                              : "border-surface-300 bg-surface-200/50 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-surface-300"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Stats Collapsible */}
-        <div className="rounded-xl border border-surface-200/50 bg-surface-100/30 overflow-hidden transition-all duration-200">
-          <button
-            onClick={() => setShowStats(!showStats)}
-            className="w-full flex items-center justify-between p-4 hover:bg-surface-200/30 transition-colors focus:outline-none"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-200/80 text-sky-400">
-                <BarChart3 size={16} />
-              </div>
-              <span className="font-semibold text-white text-sm">
-                Course Statistics
-              </span>
-            </div>
-            {showStats ? (
-              <ChevronUp size={18} className="text-gray-500" />
-            ) : (
-              <ChevronDown size={18} className="text-gray-500" />
-            )}
-          </button>
-
-          {showStats && (
-            <div className="p-4 pt-0 border-t border-surface-200/30 animate-fade-in">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
-                <StatCard
-                  icon={<Clock size={16} className="text-brand" />}
-                  label={t("coursePlanner.remaining")}
-                  value={formatDuration(stats.totalRemainingSeconds)}
-                  sub={t("coursePlanner.videosLeft", {
-                    count: stats.videosRemaining,
-                  })}
-                />
-                <StatCard
-                  icon={<Calendar size={16} className="text-emerald-400" />}
-                  label={t("coursePlanner.estFinish")}
-                  value={finishLabel}
-                  sub={t("coursePlanner.scheduleSummary", {
-                    days: plan.studyDays.length,
-                    duration: formatDuration(stats.weeklyStudyMinutes * 60),
-                  })}
-                />
-                <StatCard
-                  icon={<CalendarCheck size={16} className="text-sky-400" />}
-                  label={t("coursePlanner.progress")}
-                  value={`${stats.completedCount} / ${stats.videosTotal}`}
-                  sub={t("coursePlanner.percentComplete", {
-                    percent: progressPercent,
-                  })}
-                />
-                <StatCard
-                  icon={<Target size={16} className="text-amber-400" />}
-                  label={t("coursePlanner.today")}
-                  value={
-                    stats.isStudyDayToday
-                      ? formatDuration(todayPlan.budgetSeconds)
-                      : t("coursePlanner.restDay")
-                  }
-                  sub={
-                    stats.isStudyDayToday
-                      ? t("coursePlanner.tasksDone", {
-                          done: todayChecked,
-                          total: todayPlan.tasks.length,
-                        })
-                      : t("coursePlanner.notScheduled")
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Today's Plan Collapsible */}
-        <div className="rounded-xl border border-surface-200/50 bg-surface-100/30 overflow-hidden transition-all duration-200">
-          <button
-            onClick={() => setShowToday(!showToday)}
-            className="w-full flex items-center justify-between p-4 hover:bg-surface-200/30 transition-colors focus:outline-none"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-200/80 text-amber-400">
-                <ListTodo size={16} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-white text-sm">
-                  {t("coursePlanner.todayPlan", { date: todayKey })}
-                </span>
-                {stats.isStudyDayToday && todayPlan.tasks.length > 0 && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">
-                    {todayChecked}/{todayPlan.tasks.length}
+                  <span className="font-semibold text-white text-sm">
+                    {t("coursePlanner.dailyTime")} & {t("coursePlanner.studyDays")}
                   </span>
+                </div>
+                {showSettings ? (
+                  <ChevronUp size={18} className="text-gray-500" />
+                ) : (
+                  <ChevronDown size={18} className="text-gray-500" />
+                )}
+              </button>
+            )}
+
+            {(activeTab || showSettings) && (
+              <div className={`p-4 ${!activeTab ? 'pt-0 border-t border-surface-200/30' : ''} animate-fade-in`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                      {t("coursePlanner.dailyTime")}
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[11px] font-semibold text-gray-400 uppercase">
+                          {t("coursePlanner.hours")}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={12}
+                          value={hours}
+                          onChange={(e) =>
+                            setHours(
+                              Math.max(0, parseInt(e.target.value, 10) || 0),
+                            )
+                          }
+                          onBlur={() => applyDailyTime(hours, minutes)}
+                          className="w-24 rounded-lg border border-surface-300 bg-surface-200/50 px-3 py-2 text-sm font-semibold text-white focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all"
+                        />
+                      </label>
+                      <span className="text-xl text-gray-500 font-light mt-5">
+                        :
+                      </span>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[11px] font-semibold text-gray-400 uppercase">
+                          {t("coursePlanner.minutes")}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={59}
+                          value={minutes}
+                          onChange={(e) =>
+                            setMinutes(
+                              Math.min(
+                                59,
+                                Math.max(0, parseInt(e.target.value, 10) || 0),
+                              ),
+                            )
+                          }
+                          onBlur={() => applyDailyTime(hours, minutes)}
+                          className="w-24 rounded-lg border border-surface-300 bg-surface-200/50 px-3 py-2 text-sm font-semibold text-white focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-all"
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-gray-400 font-medium mt-3 px-1">
+                      {t("coursePlanner.perStudyDay", {
+                        duration: formatDuration(plan.dailyMinutes * 60),
+                      })}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                      {t("coursePlanner.studyDays")}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAY_OPTIONS.map(({ value }) => {
+                        const label = t(
+                          `coursePlanner.weekdays.${WEEKDAY_I18N[value]}`,
+                        );
+                        const active = plan.studyDays.includes(value);
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => toggleStudyDay(value)}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
+                              active
+                                ? "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                                : "border-surface-300 bg-surface-200/50 text-gray-400 hover:text-white hover:border-gray-500 hover:bg-surface-300"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {(!activeTab || activeTab === 'todayPlan') && (
+          <div className="rounded-xl border border-surface-200/50 bg-surface-100/30 overflow-hidden">
+            {!activeTab && (
+              <button
+                onClick={() => setShowToday(!showToday)}
+                className="w-full flex items-center justify-between p-4 hover:bg-surface-200/30 transition-colors focus:outline-none"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-200/80 text-amber-400">
+                    <ListTodo size={16} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-white text-sm">
+                      {t("coursePlanner.todayPlan", { date: todayKey })}
+                    </span>
+                    {stats.isStudyDayToday && todayPlan.tasks.length > 0 && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">
+                        {todayChecked}/{todayPlan.tasks.length}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {stats.isStudyDayToday && todayPlan.tasks.length > 0 && (
+                    <span className="hidden sm:inline-block text-xs font-medium text-gray-500">
+                      {t("coursePlanner.planned", {
+                        planned: formatDuration(todayPlan.plannedSeconds),
+                        total: formatDuration(todayPlan.budgetSeconds),
+                      })}
+                    </span>
+                  )}
+                  {showToday ? (
+                    <ChevronUp size={18} className="text-gray-500" />
+                  ) : (
+                    <ChevronDown size={18} className="text-gray-500" />
+                  )}
+                </div>
+              </button>
+            )}
+
+            {(activeTab || showToday) && (
+              <div className={`bg-surface-50/50 animate-fade-in ${!activeTab ? 'border-t border-surface-200/30' : ''}`}>
+                {!stats.isStudyDayToday ? (
+                  <div className="px-6 py-10 flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-surface-200/50 flex items-center justify-center mb-3 text-gray-400">
+                      <Calendar size={20} />
+                    </div>
+                    <p className="text-sm font-semibold text-gray-300 mb-1">
+                      Rest Day
+                    </p>
+                    <p className="text-xs text-gray-500 max-w-sm">
+                      {t("coursePlanner.restDayBody")}
+                    </p>
+                  </div>
+                ) : todayPlan.tasks.length === 0 ? (
+                  <div className="px-6 py-10 flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3 text-emerald-400">
+                      <CheckCircle2 size={24} />
+                    </div>
+                    <p className="text-sm font-semibold text-emerald-400 mb-1">
+                      All Caught Up!
+                    </p>
+                    <p className="text-xs text-emerald-500/70 max-w-sm">
+                      {t("coursePlanner.allCaughtUp")}
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-surface-200/40 max-h-[min(60vh,500px)] overflow-y-auto p-2">
+                    {todayPlan.tasks.map((task) => (
+                      <li
+                        key={task.video.id}
+                        className={`flex items-center gap-4 px-4 py-3 m-1 rounded-xl transition-all ${
+                          task.checked
+                            ? "bg-surface-200/30 opacity-70"
+                            : "bg-surface-100 hover:bg-surface-200/70 shadow-sm border border-surface-200/40"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleTask(task.video.id, !task.checked)}
+                          className={`shrink-0 p-1 rounded-full transition-all hover:scale-110 active:scale-95 ${
+                            task.checked
+                              ? "text-emerald-400"
+                              : "text-gray-400 hover:text-emerald-400"
+                          }`}
+                          aria-label={
+                            task.checked
+                              ? t("coursePlanner.markIncomplete")
+                              : t("coursePlanner.markComplete")
+                          }
+                        >
+                          {task.checked ? (
+                            <CheckCircle2
+                              size={24}
+                              className="fill-emerald-500/20"
+                            />
+                          ) : (
+                            <Circle size={24} />
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`text-sm font-bold leading-snug truncate ${
+                              task.checked
+                                ? "text-gray-500 line-through"
+                                : "text-gray-200"
+                            }`}
+                          >
+                            {task.video.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-300/40 text-gray-400">
+                              {formatDuration(task.remainingSeconds)} left
+                            </span>
+                            {task.video.watchProgress > 0.02 &&
+                              task.video.watchProgress < 0.98 && (
+                                <span className="text-[11px] font-medium text-brand">
+                                  {t("coursePlanner.started", {
+                                    percent: Math.round(
+                                      task.video.watchProgress * 100,
+                                    ),
+                                  })}
+                                </span>
+                              )}
+                          </div>
+                        </div>
+                        <Link
+                          to={`/watch/${task.video.id}`}
+                          className="shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand/10 text-brand hover:bg-brand hover:text-white transition-all shadow-sm hover:shadow-brand/20"
+                          title={t("coursePlanner.watch")}
+                        >
+                          <Play size={16} className="ml-0.5 fill-current" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {stats.isStudyDayToday && todayPlan.tasks.length > 0 && (
-                <span className="hidden sm:inline-block text-xs font-medium text-gray-500">
-                  {t("coursePlanner.planned", {
-                    planned: formatDuration(todayPlan.plannedSeconds),
-                    total: formatDuration(todayPlan.budgetSeconds),
-                  })}
-                </span>
-              )}
-              {showToday ? (
-                <ChevronUp size={18} className="text-gray-500" />
-              ) : (
-                <ChevronDown size={18} className="text-gray-500" />
-              )}
-            </div>
-          </button>
-
-          {showToday && (
-            <div className="border-t border-surface-200/30 bg-surface-50/50 animate-fade-in">
-              {!stats.isStudyDayToday ? (
-                <div className="px-6 py-10 flex flex-col items-center justify-center text-center">
-                  <div className="w-12 h-12 rounded-full bg-surface-200/50 flex items-center justify-center mb-3 text-gray-400">
-                    <Calendar size={20} />
-                  </div>
-                  <p className="text-sm font-semibold text-gray-300 mb-1">
-                    Rest Day
-                  </p>
-                  <p className="text-xs text-gray-500 max-w-sm">
-                    {t("coursePlanner.restDayBody")}
-                  </p>
-                </div>
-              ) : todayPlan.tasks.length === 0 ? (
-                <div className="px-6 py-10 flex flex-col items-center justify-center text-center">
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3 text-emerald-400">
-                    <CheckCircle2 size={24} />
-                  </div>
-                  <p className="text-sm font-semibold text-emerald-400 mb-1">
-                    All Caught Up!
-                  </p>
-                  <p className="text-xs text-emerald-500/70 max-w-sm">
-                    {t("coursePlanner.allCaughtUp")}
-                  </p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-surface-200/40 max-h-[min(60vh,500px)] overflow-y-auto p-2">
-                  {todayPlan.tasks.map((task) => (
-                    <li
-                      key={task.video.id}
-                      className={`flex items-center gap-4 px-4 py-3 m-1 rounded-xl transition-all ${
-                        task.checked
-                          ? "bg-surface-200/30 opacity-70"
-                          : "bg-surface-100 hover:bg-surface-200/70 shadow-sm border border-surface-200/40"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleTask(task.video.id, !task.checked)}
-                        className={`shrink-0 p-1 rounded-full transition-all hover:scale-110 active:scale-95 ${
-                          task.checked
-                            ? "text-emerald-400"
-                            : "text-gray-400 hover:text-emerald-400"
-                        }`}
-                        aria-label={
-                          task.checked
-                            ? t("coursePlanner.markIncomplete")
-                            : t("coursePlanner.markComplete")
-                        }
-                      >
-                        {task.checked ? (
-                          <CheckCircle2
-                            size={24}
-                            className="fill-emerald-500/20"
-                          />
-                        ) : (
-                          <Circle size={24} />
-                        )}
-                      </button>
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={`text-sm font-bold leading-snug truncate ${
-                            task.checked
-                              ? "text-gray-500 line-through"
-                              : "text-gray-200"
-                          }`}
-                        >
-                          {task.video.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-300/40 text-gray-400">
-                            {formatDuration(task.remainingSeconds)} left
-                          </span>
-                          {task.video.watchProgress > 0.02 &&
-                            task.video.watchProgress < 0.98 && (
-                              <span className="text-[11px] font-medium text-brand">
-                                {t("coursePlanner.started", {
-                                  percent: Math.round(
-                                    task.video.watchProgress * 100,
-                                  ),
-                                })}
-                              </span>
-                            )}
-                        </div>
-                      </div>
-                      <Link
-                        to={`/watch/${task.video.id}`}
-                        className="shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-brand/10 text-brand hover:bg-brand hover:text-white transition-all shadow-sm hover:shadow-brand/20"
-                        title={t("coursePlanner.watch")}
-                      >
-                        <Play size={16} className="ml-0.5 fill-current" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

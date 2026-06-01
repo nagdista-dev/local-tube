@@ -18,13 +18,17 @@ import {
   BarChart3,
   Clock,
   CalendarCheck,
+  ListTodo,
+  Settings2,
+  TrendingUp,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { formatDuration } from '../utils/format';
 import CourseStudyPlanner from './CourseStudyPlanner';
+import CourseStatsTab from './CourseStatsTab';
 
 /* ─── Course‑page tab types ─────────────────────────────────────── */
-type CourseTab = 'videos' | 'studyPlan' | 'progress';
+type CourseTab = 'videos' | 'todayPlan' | 'studySettings' | 'progress' | 'stats';
 
 function CourseTabs({
   activeTab,
@@ -38,9 +42,11 @@ function CourseTabs({
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   const tabs: { id: CourseTab; label: string; icon: typeof ListVideo; badge?: string }[] = [
-    { id: 'videos',    label: t('videoGrid.tabVideos'),    icon: ListVideo, badge: String(videoCount) },
-    { id: 'studyPlan', label: t('videoGrid.tabStudyPlan'), icon: Target },
-    { id: 'progress',  label: t('videoGrid.tabProgress'),  icon: BarChart3 },
+    { id: 'videos',        label: t('videoGrid.tabVideos'),    icon: ListVideo, badge: String(videoCount) },
+    { id: 'todayPlan',     label: t('coursePlanner.todayPlan', { date: '' }).replace(' · ', '').trim() || "Today's Plan", icon: Target },
+    { id: 'studySettings', label: t('coursePlanner.dailyTime') || "Settings", icon: Settings2 },
+    { id: 'progress',      label: t('videoGrid.tabProgress'),  icon: BarChart3 },
+    { id: 'stats',         label: "Statistics",                icon: TrendingUp },
   ];
 
   return (
@@ -497,11 +503,22 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
             )
           )}
 
-          {courseTab === 'studyPlan' && (
+          {courseTab === 'todayPlan' && (
             <div className="animate-fade-in">
               <CourseStudyPlanner
                 categoryPath={category}
                 courseTitle={activeCategory.name}
+                activeTab="todayPlan"
+              />
+            </div>
+          )}
+
+          {courseTab === 'studySettings' && (
+            <div className="animate-fade-in">
+              <CourseStudyPlanner
+                categoryPath={category}
+                courseTitle={activeCategory.name}
+                activeTab="studySettings"
               />
             </div>
           )}
@@ -513,6 +530,14 @@ export default function VideoGrid({ category, sort, search }: VideoGridProps) {
                 courseProgress={courseProgress}
                 allVideos={allVideos}
                 t={t}
+              />
+            </div>
+          )}
+          {courseTab === 'stats' && (
+            <div className="animate-fade-in">
+              <CourseStatsTab
+                categoryPath={category}
+                courseTitle={activeCategory.name}
               />
             </div>
           )}

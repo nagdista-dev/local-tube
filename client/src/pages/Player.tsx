@@ -505,6 +505,7 @@ function VideoInfoHeader({
             {formatDuration(displayDuration)}
           </span>
         )}
+
         {video.fileSize > 0 && (
           <span className="px-2 py-1 text-gray-400 text-xs">
             {formatFileSize(video.fileSize)}
@@ -553,6 +554,9 @@ function VideoInfoActions({
   onToggleAutoPlayNext,
   showAutoPlay,
   onShowShortcuts,
+  current,
+  duration,
+  speed,
 }: {
   id?: string;
   isFav: boolean;
@@ -566,12 +570,23 @@ function VideoInfoActions({
   onToggleAutoPlayNext?: () => void;
   showAutoPlay?: boolean;
   onShowShortcuts?: () => void;
+  current?: number;
+  duration?: number;
+  speed?: number;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   if (id === "external") return null;
 
   return (
     <div className="flex flex-wrap gap-2 shrink-0 sm:justify-end">
+      {duration !== undefined && current !== undefined && speed !== undefined && duration > 0 && duration - current > 1 && (
+        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-200/40 border border-surface-300 text-sm font-medium text-white shadow-sm backdrop-blur-md" title={t("player.estimatedEnd")}>
+          <Timer size={17} className="text-brand shrink-0" />
+          <span className="tracking-wide tabular-nums">
+            {new Date(Date.now() + ((duration - current) / speed) * 1000).toLocaleTimeString(locale === "ar" ? "ar-EG" : [], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+      )}
       {onShowShortcuts && (
         <button
           type="button"
@@ -1926,6 +1941,9 @@ export default function Player() {
                 autoPlayNext={autoPlayNext}
                 onToggleAutoPlayNext={() => setAutoPlayNext((v) => !v)}
                 onShowShortcuts={() => setShowShortcuts(true)}
+                current={current}
+                duration={duration}
+                speed={speed}
               />
             </div>
           </div>

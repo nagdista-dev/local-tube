@@ -175,9 +175,7 @@ function CategoryTree({
           {category.isCourse && (
             <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
           )}
-          <span className="text-xs text-gray-600 font-normal shrink-0 ms-1">
-            {category.count}
-          </span>
+          
         </button>
       </div>
 
@@ -204,7 +202,7 @@ function CategoryTree({
 }
 
 export default function Sidebar() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const isOpen = useStore((s) => s.sidebarOpen);
@@ -220,6 +218,18 @@ export default function Sidebar() {
     return saved ? parseInt(saved, 10) : 240;
   });
   const [isResizing, setIsResizing] = useState(false);
+
+  // Clock state for Aside
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+  const formattedTime = now.toLocaleTimeString(locale === "ar" ? "ar" : undefined, {
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  });
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories"],
@@ -326,7 +336,12 @@ export default function Sidebar() {
 
   if (!isOpen) {
     return (
-      <aside className="w-14 shrink-0 flex flex-col gap-1 py-4 px-2 border-e border-surface-200 bg-surface/80">
+      <aside className="w-14 shrink-0 flex flex-col h-full py-4 px-2 border-e border-surface-200 bg-surface/80">
+        {/* Clock for collapsed Aside */}
+        <div className="sticky top-0 flex items-center justify-center px-2 py-1 my-1 rounded-lg shadow-sm text-xs font-medium text-white bg-surface/80 whitespace-nowrap">
+          {formattedTime}
+        </div>
+        <div className="border-t border-surface-200 my-1" />
         {NAV_LINKS.map(({ to, icon: Icon, labelKey }) => (
           <Link
             key={to}
@@ -365,7 +380,7 @@ export default function Sidebar() {
             <Icon size={20} />
           </Link>
         ))}
-        <div className="mt-2 border-t border-surface-200 pt-2 flex flex-col gap-1">
+        <div className="mt-auto border-t border-surface-200 pt-2 flex flex-col gap-1">
           {categories.slice(0, 8).map((cat) => (
             <button
               key={cat.path}
@@ -382,7 +397,7 @@ export default function Sidebar() {
             </button>
           ))}
         </div>
-        <div className="mt-auto pt-2 flex flex-col gap-1">
+        <div className="mt-auto flex flex-col gap-1">
           <a
             href="https://github.com/nagdista-dev/local-tube"
             target="_blank"
@@ -400,19 +415,23 @@ export default function Sidebar() {
             <Mail size={18} />
           </a>
         </div>
+
       </aside>
     );
   }
 
   return (
     <aside
-      className={`shrink-0 flex flex-col py-4 border-e border-surface-200 bg-surface/80 overflow-y-auto relative ${
-        isResizing ? "select-none" : ""
-      }`}
+      className={`shrink-0 flex flex-col h-full py-4 border-e border-surface-200 bg-surface/80 relative overflow-y-auto ${isResizing ? "select-none" : ""}`}
       style={{ width: `${width}px` }}
     >
+        {/* Clock at top of Aside */}
+        <div className="sticky top-0 flex items-center justify-center px-3 py-1 my-1 rounded-lg shadow-sm text-sm font-medium text-white bg-surface/80 whitespace-nowrap">
+          {formattedTime}
+        </div>
+        <div className="border-t border-surface-200 my-1" />
       {/* Main nav */}
-      <nav className="px-3 flex flex-col gap-0.5">
+      <nav className="flex flex-col gap-0.5 px-3">
         {NAV_LINKS.map(({ to, icon: Icon, labelKey }) => (
           <Link
             key={to}
@@ -462,7 +481,7 @@ export default function Sidebar() {
       <div className="mx-3 my-3 border-t border-surface-200" />
 
       {/* Categories */}
-      <div className="px-3">
+      <div className="flex-1 overflow-y-auto px-3">
         <div className="flex items-center justify-between gap-2 px-3 mb-2">
           <div className="flex items-center gap-2 min-w-0">
             <Tv2 size={14} className="text-gray-500 shrink-0" />

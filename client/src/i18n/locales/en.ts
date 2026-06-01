@@ -248,6 +248,8 @@ const en = {
     prevLesson: "Previous lesson (P)",
     nextLesson: "Next lesson (N)",
     timer: "Timer",
+    endsAt: "Ends at",
+    estimatedEnd: "Estimated end time",
     timerTitle: "Set Sleep Timer",
     sleepLeft: "Sleep: {{time}} left",
     timerOff: "Off",

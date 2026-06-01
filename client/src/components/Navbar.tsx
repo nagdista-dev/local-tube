@@ -73,11 +73,11 @@ export default function Navbar() {
   const search = useStore((s) => s.filters.search);
   const setSearch = useStore((s) => s.setSearch);
   const { theme, toggleTheme } = useTheme();
-
   const [localSearch, setLocalSearch] = useState(search);
-  const [scanning, setScanning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
+  const [scanning, setScanning] = useState(false);
+  
 
   // ── Clear Cache States ─────────────────────────────────────────────────────
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -323,9 +323,9 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-surface/80 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/70 w-full">
       <div className="w-full px-3 sm:px-4">
         <div className="flex h-14 items-center justify-between gap-2 sm:gap-3">
-          {/* Brand */}
-          <div className="flex items-center gap-1 shrink-0">
-            <NavIconButton onClick={toggleSidebar} title={t("nav.toggleSidebar")}>
+        {/* Brand */}
+        <div className="flex items-center gap-1 shrink-0">
+          <NavIconButton onClick={toggleSidebar} title={t("nav.toggleSidebar")}>
               <Menu size={18} />
             </NavIconButton>
             <Link

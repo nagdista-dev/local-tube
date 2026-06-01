@@ -248,6 +248,8 @@ const ar: TranslationDict = {
     prevLesson: "الدرس السابق (P)",
     nextLesson: "الدرس التالي (N)",
     timer: "مؤقت",
+    endsAt: "ينتهي في",
+    estimatedEnd: "وقت الانتهاء المتوقع",
     timerTitle: "ضبط مؤقت النوم",
     sleepLeft: "النوم: متبقي {{time}}",
     timerOff: "إيقاف",
