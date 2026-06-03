@@ -26,17 +26,16 @@ import { useStore } from "../store/useStore";
 import { useTranslation } from "../i18n";
 import { Category } from "../types";
 import { isArabic } from "../utils/format";
+import PrayerTimes from "./PrayerTimes";
 
 const NAV_LINKS = [
   { to: "/", icon: Home, labelKey: "sidebar.home" },
   { to: "/continue-watching", icon: Play, labelKey: "sidebar.continueWatching" },
   { to: "/history", icon: History, labelKey: "sidebar.history" },
   { to: "/favorites", icon: Heart, labelKey: "sidebar.favorites" },
-  { to: "/downloads", icon: Download, labelKey: "sidebar.downloads" },
 ] as const;
 
 const TOOLS_LINKS = [
-  { to: "/pomodoro", icon: Timer, labelKey: "sidebar.pomodoro" },
   { to: "/guide", icon: BookOpen, labelKey: "sidebar.howToUse" },
 ] as const;
 
@@ -231,6 +230,13 @@ export default function Sidebar() {
     hour12: true,
   });
 
+  const yearProgress = (() => {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear() + 1, 0, 1);
+    return ((now.getTime() - start.getTime()) / (end.getTime() - start.getTime())) * 100;
+  })();
+
+
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: api.videos.categories,
@@ -413,24 +419,6 @@ export default function Sidebar() {
             </button>
           ))}
         </div>
-        <div className="mt-auto flex flex-col gap-1">
-          <a
-            href="https://github.com/nagdista-dev/local-tube"
-            target="_blank"
-            rel="noreferrer"
-            className="p-3 rounded-lg transition-colors flex items-center justify-center text-gray-400 hover:bg-surface-200 hover:text-white"
-            title="Starring on GitHub"
-          >
-            <Github size={18} />
-          </a>
-          <a
-            href="mailto:nagdista@gmail.com?subject=LocalTube%20Feedback/Problem"
-            className="p-3 rounded-lg transition-colors flex items-center justify-center text-gray-400 hover:bg-surface-200 hover:text-white"
-            title="Report a Problem"
-          >
-            <Mail size={18} />
-          </a>
-        </div>
 
       </aside>
     );
@@ -457,8 +445,24 @@ export default function Sidebar() {
 {/* Clock box */}
 <div className="px-4 py-2">
   <div className="text-2xl font-bold text-white">{formattedTime}</div>
-  <div className="text-xs text-gray-400">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+  <div className="flex items-center justify-between gap-2 mt-0.5">
+    <div className="text-xs text-gray-400">
+      {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+    </div>
+    <div 
+      className="flex items-center gap-1.5"
+      title={`${yearProgress.toFixed(1)}% of the year passed`}
+    >
+      <div className="w-12 h-1.5 bg-surface-200/50 rounded-full overflow-hidden flex">
+        <div className="h-full bg-brand rounded-full transition-all duration-1000" style={{ width: `${yearProgress}%` }} />
+      </div>
+      <span className="text-[10px] font-semibold text-gray-500">{yearProgress.toFixed(0)}%</span>
+    </div>
+  </div>
 </div>
+
+<PrayerTimes />
+
 <div className="border-t border-surface-200 my-1" />
       {/* Main nav */}
       <nav className="flex flex-col gap-0.5 px-3">
@@ -570,26 +574,6 @@ export default function Sidebar() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Bottom Links */}
-      <div className="mt-auto px-3 pt-4 pb-2 flex flex-col gap-1">
-        <a
-          href="https://github.com/nagdista-dev/local-tube"
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-surface-100 hover:text-white transition-colors"
-        >
-          <Github size={16} />
-          Starring on GitHub
-        </a>
-        <a
-          href="mailto:nagdista@gmail.com?subject=LocalTube%20Feedback/Problem"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-surface-100 hover:text-white transition-colors"
-        >
-          <Mail size={16} />
-          Report a Problem
-        </a>
       </div>
 
       {/* Resizer Handle */}

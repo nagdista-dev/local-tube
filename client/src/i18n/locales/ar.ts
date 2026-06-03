@@ -56,6 +56,8 @@ const ar: TranslationDict = {
     clearCacheError: "فشل مسح الذاكرة.",
     toolsMenu: "المزيد من الخيارات",
     libraryTools: "المكتبة",
+    enterFullscreen: "ملء الشاشة",
+    exitFullscreen: "إنهاء ملء الشاشة",
   },
   sidebar: {
     home: "الرئيسية",
@@ -335,6 +337,17 @@ const ar: TranslationDict = {
       "عيّن مجلداً كدورة من عرض المجلد. الدروس مرتبة، والمشغّل يعرض أدوات الدورة، والمجلد يحصل على علامة خضراء. استخدم N و P للدرس التالي والسابق.",
     shortcutsHelp: "مساعدة الاختصارات",
     shortcutsNextPrev: "الدرس التالي/السابق",
+  },
+  prayers: {
+    next: "الصلاة القادمة",
+    Fajr: "الفجر",
+    Sunrise: "الشروق",
+    Dhuhr: "الظهر",
+    Asr: "العصر",
+    Maghrib: "المغرب",
+    Isha: "العشاء",
+    h: "س",
+    m: "د",
   },
 };
 

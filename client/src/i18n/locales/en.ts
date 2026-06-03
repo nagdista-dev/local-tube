@@ -54,6 +54,8 @@ const en = {
     clearCacheError: "Failed to clear cache.",
     toolsMenu: "More options",
     libraryTools: "Library",
+    enterFullscreen: "Fullscreen",
+    exitFullscreen: "Exit Fullscreen",
   },
   sidebar: {
     home: "Home",
@@ -336,6 +338,17 @@ const en = {
       "Mark a folder as a course from its folder view. Lessons sort in order, the player shows course tools, and folders get a green checkmark in the sidebar. Use N and P for next and previous lesson while watching.",
     shortcutsHelp: "Shortcuts help",
     shortcutsNextPrev: "Next / previous lesson",
+  },
+  prayers: {
+    next: "Next Prayer",
+    Fajr: "Fajr",
+    Sunrise: "Sunrise",
+    Dhuhr: "Dhuhr",
+    Asr: "Asr",
+    Maghrib: "Maghrib",
+    Isha: "Isha",
+    h: "h",
+    m: "m",
   },
 };
 

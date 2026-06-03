@@ -21,6 +21,8 @@ import {
   CornerLeftUp,
   HardDrive,
   ChevronRight,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useTheme } from "../hooks/useTheme";
@@ -77,7 +79,28 @@ export default function Navbar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
   const [scanning, setScanning] = useState(false);
-  
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Error toggling fullscreen:", err);
+    }
+  };
+
 
   // ── Clear Cache States ─────────────────────────────────────────────────────
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -496,6 +519,14 @@ export default function Navbar() {
               aria-label={t("nav.toggleTheme")}
             >
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            </NavIconButton>
+
+            <NavIconButton
+              onClick={handleToggleFullscreen}
+              title={isFullscreen ? t("nav.exitFullscreen") : t("nav.enterFullscreen")}
+              aria-label={isFullscreen ? t("nav.exitFullscreen") : t("nav.enterFullscreen")}
+            >
+              {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
             </NavIconButton>
 
             <NavDivider />
